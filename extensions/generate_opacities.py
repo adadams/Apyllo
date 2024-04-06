@@ -1,0 +1,1 @@
+from argparse import ArgumentParserfrom Lupu_opacity_reader import prepare_opacity_tablefrom user_config import Lupu_gas_opacitiesdef main():    parser = ArgumentParser    parser.add_argument("")    return Noneif __name__ == "__main__":    main()
