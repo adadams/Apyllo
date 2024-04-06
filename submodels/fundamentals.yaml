@@ -1,0 +1,16 @@
+--- # Radius and gravity
+Radius:
+  argument_name: Rad
+  print_name: r"$R_\mathrm{p}$"
+  type: fundamental
+  dimensions: [length]
+  default_value: 1
+  default_unit: Jupiter_radius
+
+Surface gravity:
+  argument_name: Log(g)
+  print_name: r"$\log\!g$"
+  type: fundamental
+  dimensions: None
+  default_value: 4.1
+  default_units: None

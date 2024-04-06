@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.interpolate import PchipInterpolator as monotonic_interpolation
 from scipy.ndimage import gaussian_filter1d as gaussian_smoothing
+from typing import Sequence
 
 
 ########## ANJALI PIETTE et. al. Profile ##########
@@ -20,10 +21,10 @@ def piette(
     T_1p5: float,
     T_2: float,
     T_2p5: float,
-    pressures: list[float],
+    pressures: Sequence[float],  # log(P/bars)
 ):
-    logP_nodes = np.array([-4, -3, -2, -1, 0, 0.5, 1, 1.5, 2])
-    T_nodes = np.array([T_m4, T_m3, T_m2, T_m1, T_0, T_0p5, T_1, T_1p5, T_2])
+    logP_nodes = np.array([-4, -3, -2, -1, 0, 0.5, 1, 1.5, 2, 2.5])
+    T_nodes = np.array([T_m4, T_m3, T_m2, T_m1, T_0, T_0p5, T_1, T_1p5, T_2, T_2p5])
 
     interpolated_function = monotonic_interpolation(logP_nodes, T_nodes)
 

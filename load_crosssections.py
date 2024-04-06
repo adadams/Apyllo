@@ -1,3 +1,4 @@
+# %%
 import numpy as np
 from pathlib import Path
 import polars as pl
@@ -33,6 +34,11 @@ def load_gas_opacity_data_into_dataset(
     return crosssection_dataset
 
 
-opacities_interpd = opacity_dataset.interp(
-    pressures=Ps, temperatures=Ts, wavelengths=waves, assume_sorted=True
-)
+opacity_dataset = load_gas_opacity_data_into_dataset(GAS_OPACITY_DIRECTORY, "nir")
+# %%
+opacity_dataset
+# opacities_interpd = opacity_dataset.interp(
+#    pressures=Ps, temperatures=Ts, wavelengths=waves, assume_sorted=True
+# )
+
+# %%

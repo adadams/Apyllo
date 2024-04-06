@@ -1,0 +1,7 @@
+--- # Format for gas abundances in log scale
+[GAS_NAME]:
+  argument_name: [GAS_NAME_IN_LOWERCASE]
+  print_name: "[[GAS_NAME]]"
+  dimensions: None
+  default_value: None
+  default_unit: None

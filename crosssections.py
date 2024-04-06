@@ -2,18 +2,12 @@ from dataclasses import dataclass
 import numpy as np
 from os import PathLike
 from pathlib import Path
-from typing import Protocol
+from typing import NamedTuple, Protocol
 from warnings import warn
 from xarray import DataArray, Dataset
 
 
-@dataclass(slots=True)
-class CrossSection(Protocol):
-    """
-    Defines the header entries and properties that are needed for a collection
-    of cross-section tables. Attributes follow the APOLLO-style header.
-    """
-
+class OpacityHeader(NamedTuple):
     number_of_pressure_layers: int
     minimum_log_pressure: float
     maximum_log_pressure: float
@@ -24,6 +18,14 @@ class CrossSection(Protocol):
     minimum_wavelength: float
     maximum_wavelength: float
     effective_resolution: float
+
+
+@dataclass(slots=True)
+class CrossSection(Protocol):
+    """
+    Defines the header entries and properties that are needed for a collection
+    of cross-section tables. Attributes follow the APOLLO-style header.
+    """
 
     @property
     def pressures(self) -> None: ...

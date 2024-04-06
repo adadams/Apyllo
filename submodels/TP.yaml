@@ -1,0 +1,7 @@
+--- # Format for temperature nodes at some pressure
+T_[LOG_PRESSURE]:
+  argument_name: T_[LOG_PRESSURE]
+  print_name: "T_{[LOG_PRESSURE]}"
+  dimensions: [temperature]
+  default_value: None
+  default_unit: kelvin

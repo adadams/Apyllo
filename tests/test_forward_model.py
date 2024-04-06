@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 
-sys.path.append("../newAPOLLO")
+sys.path.append("../APOLLO")
 
 from make_forward_model_from_file import generate_model_spectrum
 
@@ -32,3 +32,6 @@ def test_2M2236_forward_model():
     assert load_and_check_if_spectra_match(
         TEST_2M2236_FILEPATH, TEST_MATCH_2M2236_SPECTRUM
     )
+
+
+test_2M2236_forward_model()

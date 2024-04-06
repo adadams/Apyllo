@@ -1,7 +1,5 @@
 import numpy as np
-import sys
-
-sys.path.append("../newAPOLLO")
+from typing import Any, Callable, Sequence
 
 from apollo.Apollo_components import (
     ReadInputsfromFile,
@@ -9,11 +7,12 @@ from apollo.Apollo_components import (
     MakeObservation,
     MakePlanet,
 )
+from general_protocols import Pathlike
 
 OPACITY_DIRECTORY = "/Volumes/ResearchStorage/Opacities_0v10/"
 
 
-def generate_model_spectrum(input_filepath):
+def prep_inputs_for_model(input_filepath: Pathlike):
     inputs = ReadInputsfromFile(input_filepath)
     inputs["opacdir"] = OPACITY_DIRECTORY
 
@@ -23,21 +22,45 @@ def generate_model_spectrum(input_filepath):
 
     get_model = planet.MakeModel(processed_inputs["MakeModel_initialization_kwargs"])
 
-    exact_parameters = processed_inputs["parameters"]
-
-    model = get_model(exact_parameters)
-
     observation = MakeObservation(
         processed_inputs["ModelObservable_initialization_kwargs"]
     )
 
+    binned_wavelengths = processed_inputs[
+        "ModelObservable_initialization_kwargs"
+    ].data_wavelengths
+
+    return (
+        dict(
+            model_function=get_model,
+            observation=observation,
+            model_parameters=processed_inputs["parameters"],
+        ),
+        binned_wavelengths,
+    )
+
+
+def evaluate_model_spectrum(
+    model_function: Callable[[Any], Any],
+    observation: Callable[[Any], Any],
+    model_parameters: Sequence[float],
+):
+    model = model_function(model_parameters)
+
     obs_args = [
-        np.asarray(model[0]),
-        processed_inputs["parameters"][0],
-        "Rad",
-        exact_parameters[-4],
+        np.asarray(model[0]),  # model spectrum in emission flux
+        model_parameters[0],  # radius
+        "Rad",  # using radius and not R/D or some derivative thereof
+        model_parameters[-4],  # delta lambda index
     ]
 
     observed_binned_model, observed_full_resolution_model = observation(*obs_args)
 
     return observed_binned_model["data"]
+
+
+def generate_model_spectrum(input_filepath):
+    prepped_inputs, wavelengths = prep_inputs_for_model(input_filepath)
+
+    observed_binned_model_spectrum = evaluate_model_spectrum(**prepped_inputs)
+    return observed_binned_model_spectrum

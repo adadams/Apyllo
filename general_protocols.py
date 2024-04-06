@@ -1,10 +1,12 @@
-from dataclasses import dataclass, field, InitVar
+from dataclasses import dataclass
+from functools import partial
 from numpy.typing import NDArray
 import numpy as np
 from pathlib import Path
 from pint import Quantity, UnitRegistry
-from pprint import pprint
-from typing import Any, Callable, IO, Optional, Protocol, Sequence
+from typing import Any, Callable, IO, NamedTuple, Optional, Protocol, Sequence
+from xarray import Dataset, DataArray
+from pint_xarray import unit_registry as ureg
 
 Pathlike = Path | str
 Filelike = Pathlike | IO
@@ -45,36 +47,120 @@ class Parametrized(Protocol):
     def generate_profile_function(self, *args, **kwargs) -> None: ...
 
 
+ADDITIONAL_UNITS_FILE = Path.cwd() / "additional_units.txt"
+ureg.load_definitions(ADDITIONAL_UNITS_FILE)
+
+
+@dataclass
+class ModelBuilder:
+    """Docstring goes here."""
+
+    """
+    You could have
+    - a core function, that translates a set of values and some core component of the
+        physical structure (pressure, wavelength) that are arguments.
+        You return some physical representation of a part of the model.
+
+    - a method that takes the parameters and partially applies them to
+        the function, leaving a function of just pressure, for example.
+
+    - a container for plotting information, like the long name, units, etc.
+
+    - flexibility to calculate 
+    """
+    model_function: Callable
+    model_attributes: NamedTuple
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.model_function(*args, **kwargs)
+
+    def load_function(self, *parameter_args, **parameter_kwargs):
+        return partial(self.model_function, *parameter_args, **parameter_kwargs)
+
+
+def organize_parameter_data_in_xarray(
+    name: str,
+    print_name: str,
+    value: float | int,
+    unit: str,
+    coords: dict[str, Sequence[float]] = None,
+    **other_info,
+):
+    dataarray_construction_kwargs = dict(
+        data=value, name=name, attrs=dict(print_name=print_name, **other_info)
+    )
+
+    if coords is not None:
+        dataarray_construction_kwargs["coords"] = coords
+
+    data_array = DataArray(**dataarray_construction_kwargs).pint.quantify(unit)
+
+    return data_array
+
+
+@dataclass
+class XarrayParameter:
+    data: Dataset | DataArray
+
+    @classmethod
+    def from_measurement_and_unit(
+        cls, *, name: str, print_name: str, value: float | int, unit: str, **other_info
+    ):
+        data_array = DataArray(data=value).pint.quantify(unit)
+        data_array = data_array.assign_attrs(
+            name=name, print_name=print_name, **other_info
+        )
+
+        return cls(name=name, print_name=print_name, data=data_array)
+
+    def __getattr__(self, __name: str) -> Any:
+        return self.data.__getattribute__(__name)
+
+    # def __setattr__(self, __name: str, __value: Any) -> None:
+    #    return self.data.__setattr__(__name, __value)
+
+    def __repr__(self):
+        return f"{self.name}: {self.data}"
+
+
 @dataclass
 class Parameter:
     name: str
     print_name: str
-    value: InitVar[float | int]
-    unit: InitVar[str]
-    print_formatter: InitVar[str]
-    _quantity: Quantity = field(init=False)
+    quantity: Quantity
+
+    @classmethod
+    def from_measurement_and_unit(
+        cls, *, name: str, print_name: str, value: float | int, unit: str
+    ):
+        unit_registry = UnitRegistry()
+        unit_registry.load_definitions(ADDITIONAL_UNITS_FILE)
+        quantity = value * unit_registry(unit)
+
+        return cls(name, print_name, quantity)
+
+    @classmethod
+    def from_parameter(
+        cls, *, parameter: Parametrized, new_value, new_unit: Optional[str] = None
+    ):
+        if new_unit is None:
+            new_unit = parameter.units
+        return cls.from_measurement_and_unit
 
     def __post_init__(self, value, unit, print_formatter):
-        default_unit_registry = UnitRegistry()
-        self._quantity = value * default_unit_registry(unit)
+        unit_registry = UnitRegistry()
+        unit_registry.load_definitions(ADDITIONAL_UNITS_FILE)
+        self._quantity = value * unit_registry(unit)
         self._quantity.default_format = f"{print_formatter}P"
 
     def __getattr__(self, __name: str) -> Any:
         return self._quantity.__getattribute__(__name)
 
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        return self._quantity.__setattr__(__name, __value)
+
     def __repr__(self):
         return f"{self.name}: {self._quantity}"
-
-
-test_parameter = Parameter(
-    name="radius",  # must match the argument name in the function
-    print_name="R",
-    value=np.array([2.33485734, 4.29457829, 6.48438237]),
-    unit="meters",
-    print_formatter=".2f",
-)
-
-pprint(test_parameter)
 
 
 @dataclass
