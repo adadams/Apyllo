@@ -47,7 +47,7 @@ class Parametrized(Protocol):
     def generate_profile_function(self, *args, **kwargs) -> None: ...
 
 
-ADDITIONAL_UNITS_FILE = Path.cwd() / "additional_units.txt"
+ADDITIONAL_UNITS_FILE = Path.cwd() / "user" / "additional_units.txt"
 ureg.load_definitions(ADDITIONAL_UNITS_FILE)
 
 

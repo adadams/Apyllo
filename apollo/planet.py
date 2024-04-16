@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from astropy.constants import R_earth, R_jup
 from astropy.units import cm
-from src.ApolloFunctions import GetScaOpac
 from dataclasses import dataclass, field, InitVar
 from functools import partial
 import numpy as np
 from scipy.interpolate import interp1d
-from src.wrapPlanet import PyPlanet
 from typing import Callable, NamedTuple, Sequence
+
+from apollo.src.ApolloFunctions import GetScaOpac
+from apollo.src.wrapPlanet import PyPlanet
 
 from user.TP_models import TP_models
 
@@ -187,7 +188,6 @@ class Planet:
             task = APOLLO_use_mode
 
             ##########################################
-            print(f"{np.shape(model_parameters)=}")
             make_gaussian_profile = lambda x: x - 0.5 * (
                 np.arange(npress := np.shape(x)[-1]) - npress / 2
             ) ** 2 / ((npress) ** 2)
@@ -206,7 +206,7 @@ class Planet:
                 # abund = make_gaussian_profile(np.asarray([abund]*number_of_atmospheric_layers).T)
                 abund[0] = 1.0 - asum
                 mmw, rxsec = GetScaOpac(gases, abund[1:])
-            print(f"{abund=}")
+
             self.cross_sections = rxsec
 
             params1 = np.zeros(ilen)

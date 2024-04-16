@@ -1,26 +1,32 @@
 # from enum import auto, StrEnum
-from src.ApolloFunctions import GetScaOpac, NormSpec, ConvSpec, BinModel
-import src.ApolloFunctions as af
 from functools import partial
 import numpy as np
+import os
+from pathlib import Path
 from scipy.interpolate import interp1d
 import sys
 from typing import Callable
 
 
-from planet import (
+from apollo.planet import (
     CPlanet_constructor,
     MakeModel_constructor,
     ObserveModel_constructor,
     Planet,
 )
-from src.wrapPlanet import PyPlanet as PlanetCCore
+import apollo.src.ApolloFunctions as af
+from apollo.src.ApolloFunctions import GetScaOpac, NormSpec, ConvSpec, BinModel
+from apollo.src.wrapPlanet import PyPlanet as PlanetCCore
+from apollo.useful_internal_functions import strtobool
 
 from user.priors import priors, evaluate_default_priors
 from user.TP_models import TP_models
 from user.cloud_models import cloud_models
 
-from useful_internal_functions import strtobool
+APOLLO_DIRECTORY = os.path.abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+)
+os.chdir(APOLLO_DIRECTORY)
 
 REarth_in_cm = 6.371e8
 parsec_in_cm = 3.086e18
@@ -460,7 +466,7 @@ def ReadInputsfromFile(
         mode=mode,
         modestr=modestr,
         parallel=parallel,
-        datain=datain,
+        datain=Path(APOLLO_DIRECTORY) / datain,
         # polyfit=polyfit, # Not in ProcessInputs
         sampler=sampler,
         # samples_file=samples_file, # Not in ProcessInputs
@@ -1202,7 +1208,6 @@ def MakeObservation(observation_constructor: ObserveModel_constructor):
         """
         # Multiply by solid angle and collecting area
         fincident = modflux if mode == 2 else modflux * (theta_planet**2)
-        print(f"{len(modflux)=}")
         """ # ADA: proposed pythonic rewrite
         fincident = np.zeros(len(modflux))
         if mode<=1:
@@ -1262,13 +1267,11 @@ def MakeObservation(observation_constructor: ObserveModel_constructor):
 
         # normspec is the final forward model spectrum
         binw = (newibinlo[1] - newibinlo[0]) * (dataconv / databin)
-        print(f"{binw=}")
+
         convmod = []
         for i in range(0, len(modindex)):
-            print(f"{modindex[i]=}")
             convmod.append(ConvSpec(normspec[modindex[i][0] : modindex[i][1]], binw))
         convmod = [item for sublist in convmod for item in sublist]
-        print(f"{len(convmod)=}")
         # convmod = af.ConvSpec(fincident,binw)
         # convmod = fincident
         binmod_list = []
@@ -1283,8 +1286,12 @@ def MakeObservation(observation_constructor: ObserveModel_constructor):
         binmod = [item for sublist in binmod_list for item in sublist]
         # s2 = mastererr**2 #+ np.exp(lnf) # Can add the logf part in a subsequent routine
 
+        wavemid = np.asarray(wavemid)
+        binmod = np.asarray(binmod)
         binned_observation = dict(wavelengths=wavemid, data=binmod)
 
+        modwave = np.asarray(modwave)
+        fincident = np.asarray(fincident)
         model_observation = dict(wavelengths=modwave, data=fincident)
 
         return binned_observation, model_observation

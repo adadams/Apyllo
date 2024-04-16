@@ -2,12 +2,8 @@
 *.pyc
 src/.nfs*
 defunct/
-user/data/*
-user/models/*
-user/modelspectra/*
-user/plots/*
-user/results/*
-user/samples/*
 .vscode/
 test_log_units.py
 internal_structure_notes.txt
+
+user/results/*/

@@ -1,15 +1,28 @@
+from collections import ChainMap
 from functools import reduce
 import numpy as np
 from numpy.typing import ArrayLike
 from typing import Any, Callable
+from xarray import load_dataset
 import yaml
+
+from apollo.general_protocols import Pathlike
 
 
 def compose(*functions):
     return reduce(lambda f, g: lambda x: g(f(x)), functions)
 
 
-def format_from_template(
+def load_multi_yaml_file_into_dict(filepath: Pathlike):
+    with open(filepath, "r") as multi_file:
+        loaded_file = yaml.safe_load_all(multi_file)
+
+        file_dict = ChainMap(*loaded_file)
+
+    return file_dict
+
+
+def format_yaml_from_template(
     input_name: str, template: str, formatter: Callable
 ) -> dict[str, dict[str, Any]]:
     formats = formatter(input_name)

@@ -1,3 +1,4 @@
+from functools import lru_cache
 import numpy as np
 from typing import Any, Callable, Sequence
 
@@ -7,11 +8,12 @@ from apollo.Apollo_components import (
     MakeObservation,
     MakePlanet,
 )
-from general_protocols import Pathlike
+from apollo.general_protocols import Pathlike
 
 OPACITY_DIRECTORY = "/Volumes/ResearchStorage/Opacities_0v10/"
 
 
+@lru_cache
 def prep_inputs_for_model(input_filepath: Pathlike):
     inputs = ReadInputsfromFile(input_filepath)
     inputs["opacdir"] = OPACITY_DIRECTORY
@@ -46,6 +48,7 @@ def evaluate_model_spectrum(
     model_parameters: Sequence[float],
 ):
     model = model_function(model_parameters)
+    print(f"{type(model)=}: {model=}")
 
     obs_args = [
         np.asarray(model[0]),  # model spectrum in emission flux

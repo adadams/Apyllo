@@ -1,4 +1,69 @@
 from corner import corner as cornerplot
+from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patheffects import withStroke
+import numpy as np
+from typing import Any, NamedTuple, Sequence
+
+
+class BaseKwargs(NamedTuple):
+    samples: Any
+    weights: Any
+    group_name: str
+    parameter_names: Sequence[str]
+    parameter_range: Any
+    confidence: float = 0.99
+    color: str = "#53C79B"
+    string_formats: str = ".4g"
+    overtext_y: float = 0.5
+
+
+class CornerplotKwargs(NamedTuple):
+    samples: Any
+    fig: plt.figure  # = None
+    weights: Any
+    bins: int  # = 20
+    color: str
+    labels: Sequence[str]
+    quantiles: Sequence[float]  # = [0.16, 0.84]
+    range: Any
+    hist_kwargs: dict[str, Any]  #  = {"facecolor": color, "alpha": 0.5}
+    show_titles: bool  # = True
+    title_fmt: str
+    title_kwargs: dict[str, Any]  # = {"pad": 10, "color": color}
+    title_quantiles: Sequence[float]  # = [0.16, 0.84]
+    plot_datapoints: bool  # = True
+    labelsize: int | float  # = 11
+    use_math_text: bool  # = True
+
+
+class ExistingFigureKwargs(NamedTuple):
+    existing_figure: plt.figure = None
+    existing_titles: Sequence[str] = None
+    existing_title_color: str = None
+
+
+class MLEKwargs(NamedTuple):
+    MLE_color: str = "gold"
+    MLE_values: Sequence[float] = None
+    MLE_name: str = "MLE value"
+
+
+class ReferenceKwargs(NamedTuple):
+    reference_values: Any = None
+    reference_lowerbound: Any = None
+    reference_upperbound: Any = None
+    reference_name: str = "Reference"
+    reference_markerstyle: str = "*"
+    reference_color: str = "gold"
+
+
+def annotate_cell_on_diagonal() -> Any:
+    pass
+
+
+def annotate_cell_off_diagonal() -> Any:
+    pass
 
 
 def generate_cornerplot(
@@ -105,7 +170,7 @@ def generate_cornerplot(
                 verticalalignment="center",
                 fontsize=18,
                 color=reference_color,
-                path_effects=[pe.withStroke(linewidth=1.5, foreground="#444444")],
+                path_effects=[withStroke(linewidth=1.5, foreground="#444444")],
             )
             if reference_lowerbound is not None:
                 ax.axvline(
@@ -135,7 +200,7 @@ def generate_cornerplot(
             verticalalignment="center",
             fontsize=18,
             color=MLE_color,
-            path_effects=[pe.withStroke(linewidth=1.5, foreground="#444444")],
+            path_effects=[withStroke(linewidth=1.5, foreground="#444444")],
         )
 
         ax.set_xlim(xlim)
@@ -156,7 +221,7 @@ def generate_cornerplot(
                 par_title,
                 fontsize=hist_title_fontsize,
                 color=color,
-                path_effects=[pe.withStroke(linewidth=1, foreground="#444444")],
+                path_effects=[withStroke(linewidth=1, foreground="#444444")],
             )
             par_titles.append(par_title)
 
@@ -171,14 +236,14 @@ def generate_cornerplot(
                 horizontalalignment="center",
                 verticalalignment="center",
                 transform=ax.transAxes,
-                path_effects=[pe.withStroke(linewidth=1, foreground="#444444")],
+                path_effects=[withStroke(linewidth=1, foreground="#444444")],
             )
             if existing_titles is not None:
                 ax.set_title(
                     existing_titles[i],
                     fontsize=hist_title_fontsize,
                     color=existing_title_color,
-                    path_effects=[pe.withStroke(linewidth=1, foreground="#444444")],
+                    path_effects=[withStroke(linewidth=1, foreground="#444444")],
                 )
 
         title_color = color
@@ -295,7 +360,7 @@ def generate_cornerplot(
             Line2D([0], [0], linestyle="dashed", linewidth=3, color="#444444")
         )
         # legend_handles.append(Line2D([0], [0], linestyle="dashed", linewidth=3, color=MLE_color))
-        legend_labels.append("68\% confidence interval")
+        legend_labels.append(r"68\% confidence interval")
 
     # median_marker.set_label("Median value")
     # USE CONDITIONAL FOR OVERPLOTTING

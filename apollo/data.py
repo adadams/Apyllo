@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import ArrayLike
 import polars as pl
 import polars.selectors as pls
 from spectral import DataSpectrum
@@ -8,7 +9,7 @@ from warnings import warn
 
 from general_protocols import Filelike
 
-APOLLO_COLUMN_NAMES = [
+APOLLO_COLUMN_NAMES: list[str] = [
     "wavelength_bin_starts",
     "wavelength_bin_ends",
     "spectrum",
@@ -18,7 +19,7 @@ APOLLO_COLUMN_NAMES = [
 ]
 # NOTE TO SELF: look into "suffix" to add a "_with_noise" or whatever else you want.
 
-APOLLO_COLUMN_NAMES_WITHOUT_NOISE = APOLLO_COLUMN_NAMES[:-1]
+APOLLO_COLUMN_NAMES_WITHOUT_NOISE: list[str] = APOLLO_COLUMN_NAMES[:-1]
 
 
 def read_APOLLO_data(
@@ -27,17 +28,6 @@ def read_APOLLO_data(
     data_column_names: Sequence[str] = APOLLO_COLUMN_NAMES,
     post_polars_processing_functions: Sequence[Callable] | None = None,
 ) -> dict[str, DataSpectrum]:
-    """_summary_
-
-    Args:
-        filepath (_type_): _description_
-        band_names (list[str], optional): _description_. Defaults to None.
-        data_column_names (list[str], optional): _description_. Defaults to APOLLO_COLUMN_NAMES.
-        post_polars_processing_functions (list[Callable], optional): _description_. Defaults to None.
-
-    Returns:
-        dict[str, DataSpectrum]: _description_
-    """
     if post_polars_processing_functions is not None:
         apply_post_polars_functions = compose_left(*post_polars_processing_functions)
 
@@ -62,18 +52,11 @@ def read_APOLLO_data_into_Polars(
     filepath: Filelike,
     data_column_names: Sequence[str] = APOLLO_COLUMN_NAMES,
 ) -> dict[str, pl.DataFrame]:
-    """_summary_
+    data: pl.DataFrame = pl.read_csv(filepath, separator=" ", has_header=False).drop(
+        ~pls.numeric()
+    )
 
-    Args:
-        filepath (Filelike): _description_
-        data_column_names (Sequence[str], optional): _description_. Defaults to APOLLO_COLUMN_NAMES.
-
-    Returns:
-        dict[str, pl.DataFrame]: _description_
-    """
-    data = pl.read_csv(filepath, separator=" ", has_header=False).drop(~pls.numeric())
-
-    column_renaming_dict = {
+    column_renaming_dict: dict[str, str] = {
         default_column_name: data_column_name
         for default_column_name, data_column_name in zip(
             data.columns, data_column_names
@@ -86,15 +69,7 @@ def read_APOLLO_data_into_Polars(
 
 
 def find_band_slices_in_Polars(dataframe: pl.DataFrame) -> list[slice]:
-    """_summary_
-
-    Args:
-        dataframe (pl.DataFrame): _description_
-
-    Returns:
-        list[slice]: _description_
-    """
-    band_start_indices = (
+    band_start_indices: ArrayLike = (
         (
             dataframe.select(
                 [
@@ -122,15 +97,6 @@ def find_band_slices_in_Polars(dataframe: pl.DataFrame) -> list[slice]:
 def slice_Polars_data_into_bands(
     dataframe: pl.DataFrame, band_names: Sequence[str]
 ) -> dict[str, pl.DataFrame]:
-    """_summary_
-
-    Args:
-        dataframe (pl.DataFrame): _description_
-        band_names (Sequence[str]): _description_
-
-    Returns:
-        dict[str, pl.DataFrame]: _description_
-    """
     band_slices = find_band_slices_in_Polars(dataframe)
     number_of_bands = len(band_slices)
 
@@ -194,15 +160,6 @@ def write_Polars_data_to_APOLLO_file(
 def reduce_float_precision_to_correct_band_finding(
     dataframe: pl.DataFrame, number_of_decimal_places=5
 ):
-    """_summary_
-
-    Args:
-        dataframe (pl.DataFrame): _description_
-        number_of_decimal_places (int, optional): _description_. Defaults to 5.
-
-    Returns:
-        _type_: _description_
-    """
     return dataframe.with_columns(
         pl.col("wavelength_bin_starts").round(number_of_decimal_places),
         pl.col("wavelength_bin_ends").round(number_of_decimal_places),
