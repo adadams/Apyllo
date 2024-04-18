@@ -14,23 +14,10 @@ if not ureg:
 def load_dataset_with_units(
     filename_or_obj: Pathlike | BinaryIO, units: Sequence[str] = None, **kwargs
 ) -> Dataset:
-    """Open, load into memory, and close a Dataset from a file or file-like
-    object.
-
-    This is a thin wrapper around :py:meth:`~xarray.open_dataset`. It differs
-    from `open_dataset` in that it loads the Dataset into memory, closes the
-    file, and returns the Dataset. In contrast, `open_dataset` keeps the file
-    handle open and lazy loads its contents. All parameters are passed directly
-    to `open_dataset`. See that documentation for further details.
-
-    Returns
-    -------
-    dataset : Dataset
-        The newly created Dataset.
-
-    See Also
-    --------
-    open_dataset
+    """Effectively the same as load_dataset() in xarray (see the relevant documentation),
+    but with automatic loading of units using Pint. One has to store the units as text
+    attributes in the netcdf files, and tell Pint to add them to the data arrays when one
+    loads them into xarray datasets.
     """
     if units is None:
         units = []

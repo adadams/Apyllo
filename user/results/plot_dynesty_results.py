@@ -3,7 +3,7 @@ from matplotlib.colors import Colormap, CSS4_COLORS as COLORS
 import numpy as np
 from pandas.compat import pickle_compat
 from pathlib import Path
-from typing import Any, Sequence, TypedDict
+from typing import Any, TypedDict
 import yaml
 
 ##########################################

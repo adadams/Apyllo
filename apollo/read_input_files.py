@@ -1,8 +1,8 @@
-from distutils.util import strtobool
 import numpy as np
 import sys
 
 from user.P_points import P_profiles
+from useful_internal_functions import strtobool
 
 
 # Everything that is read in line by line from APOLLO-style text files.
