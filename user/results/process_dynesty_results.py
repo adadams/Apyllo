@@ -28,6 +28,8 @@ from apollo.retrieval.dynesty.prepare_final_results_datasets import (
 
 from user_directories import USER_DIRECTORIES
 
+RESULTS_DIRECTORY: Pathlike = USER_DIRECTORIES["results"]
+
 
 def main(
     run_filepath_directories: dict[str, dict[str, Pathlike]],
@@ -103,13 +105,13 @@ def main(
     return processed_datasets
 
 
-RESULTS_DIRECTORY: Pathlike = USER_DIRECTORIES["results"]
-RESULTS_DIRECTORY_2M2236: Pathlike = RESULTS_DIRECTORY / "2M2236"
-
-
 if __name__ == "__main__":
+    RUN_FOLDER_NAME = "Ross458c"
+
+    specific_results_directory: Pathlike = RESULTS_DIRECTORY / RUN_FOLDER_NAME
+
     run_filepath_directories: dict[str, dict[str, Pathlike]] = unpack_results_filepaths(
-        RESULTS_DIRECTORY_2M2236
+        specific_results_directory
     )
 
-    main(run_filepath_directories, dataset_save_directory=RESULTS_DIRECTORY_2M2236)
+    main(run_filepath_directories, dataset_save_directory=specific_results_directory)

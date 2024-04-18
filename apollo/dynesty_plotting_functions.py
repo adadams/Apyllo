@@ -90,13 +90,23 @@ def setup_contribution_plots(
         + 1,
         len(contributions[FIDUCIAL_SPECIES].index),
     ]
-    # break_indices = np.where(wavelengths_low[1:] != wavelengths_high[:-1])[0]
-
     number_of_bands = len(band_breaks) - 1
+
+    band_lower_wavelength_limit = np.asarray(
+        [
+            contributions[FIDUCIAL_SPECIES].index[band_break]
+            for band_break in band_breaks[:-1]
+        ]
+    )
+    band_upper_wavelength_limit = np.asarray(
+        [
+            contributions[FIDUCIAL_SPECIES].index[band_break - 1]
+            for band_break in band_breaks[1:]
+        ]
+    )
     wavelength_ranges = np.array(
         [
-            contributions[FIDUCIAL_SPECIES].index[band_breaks[i + 1] - 1]
-            - contributions[FIDUCIAL_SPECIES].index[band_breaks[i]]
+            band_upper_wavelength_limit - band_lower_wavelength_limit
             for i in range(number_of_bands)
         ]
     )
@@ -107,6 +117,8 @@ def setup_contribution_plots(
         wavelengths=wavelengths,
         data=data,
         errors=data_error,
+        band_lower_wavelength_limit=band_lower_wavelength_limit,
+        band_upper_wavelength_limit=band_upper_wavelength_limit,
         wavelength_ranges=wavelength_ranges,
     )
 
@@ -115,7 +127,7 @@ def setup_multi_figure(
     number_of_contributions: int,
     number_of_bands: int,
     wavelength_ranges: Sequence[float],
-) -> list[plt.figure, GridSpec]:
+) -> plt.figure, GridSpec:
 
     fig = plt.figure(figsize=(40, 30))
     gs = fig.add_gridspec(
@@ -406,7 +418,7 @@ def plot_multi_figure_iteration(
                 np.log10(cf).T[:, band_breaks[i] : band_breaks[i + 1] : 8],
                 colors=outline_color,
                 levels=contributions_max - np.array([2]),
-                linewidths=3,
+                # linewidths=3,
                 alpha=1,
                 zorder=1,
             )
@@ -435,7 +447,7 @@ def plot_multi_figure_iteration(
                         ],
                         colors="#DDDDDD",
                         linestyles="solid",
-                        linewidth=3,
+                        # linewidth=3,
                         alpha=1,
                         levels=[0.1],
                         zorder=3,

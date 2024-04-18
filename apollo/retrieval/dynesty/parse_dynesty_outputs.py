@@ -21,6 +21,8 @@ def unpack_results_filepaths(
     run_filepaths: dict[str, dict[str, Pathlike | dict[str, Any]]] = {
         run_name: {
             entry_name: (
+                # This assumes you put all the needed files in the results folder for the run.
+                # This could be generalized if the results_files.yaml had relative paths to begin with.
                 Path(results_directory) / run_name / entry
                 if not isinstance(entry, dict)
                 else entry
@@ -54,9 +56,10 @@ def compile_dynesty_parameters(
 
 
 def make_filter_of_dynesty_samples_by_importance(
-    dynesty_results: dynesty.results.Results, importance_weight_percentile=0.95
+    dynesty_results: dynesty.results.Results, importance_weight_percentile: float
 ) -> Sequence[bool]:
     importance_weights = dynesty_results.importance_weights()
+    print(f"{importance_weights=}")
     cumulative_importance_weights = np.cumsum(importance_weights[::-1])[::-1]
 
     is_important_enough = cumulative_importance_weights <= importance_weight_percentile
@@ -66,6 +69,7 @@ def make_filter_of_dynesty_samples_by_importance(
 def load_and_filter_all_parameters_by_importance(
     fitting_results_filepath: Pathlike,
     derived_fit_parameters_filepath: Pathlike,
+    importance_weight_percentile: float = 1 - 1e-10,
 ) -> dict[str, ArrayLike]:
     dynesty_results = load_dynesty_results(fitting_results_filepath)
 
@@ -75,9 +79,12 @@ def load_and_filter_all_parameters_by_importance(
         dynesty_results, derived_parameters
     )
 
-    is_important_enough = make_filter_of_dynesty_samples_by_importance(dynesty_results)
+    is_important_enough = make_filter_of_dynesty_samples_by_importance(
+        dynesty_results, importance_weight_percentile
+    )
 
     samples = compiled_parameters[is_important_enough].T
+    print(f"{np.shape(samples)=}")
     log_likelihoods = dynesty_results.logl[is_important_enough]
 
     return dict(samples=samples, log_likelihoods=log_likelihoods)

@@ -1,11 +1,13 @@
 from pathlib import Path
 import yaml
 
-USER_PATH = Path.cwd() / "user"
-USER_DIRECTORY_PATH = USER_PATH / "directories.yaml"
-with open(USER_DIRECTORY_PATH, "r") as directory_file:
+# from user.results.plot_dynesty_results import RESULTS_DIRECTORY
+
+USER_DIRECTORY = Path.cwd() / "user"
+USER_DIRECTORY_FILEPATH = USER_DIRECTORY / "directories.yaml"
+with open(USER_DIRECTORY_FILEPATH, "r") as directory_file:
     USER_DIRECTORIES = {
-        directory_name: USER_PATH / directory_path
+        directory_name: USER_DIRECTORY / directory_path
         for directory_name, directory_path in yaml.safe_load(directory_file).items()
     }
 

@@ -3,7 +3,7 @@ from matplotlib.colors import Colormap, CSS4_COLORS as COLORS
 import numpy as np
 from pandas.compat import pickle_compat
 from pathlib import Path
-import xarray as xr
+from typing import Any, Sequence, TypedDict
 import yaml
 
 ##########################################
@@ -17,8 +17,11 @@ APOLLO_DIRECTORY = abspath(
 sys.path.append(APOLLO_DIRECTORY)
 ##########################################
 
-plt.style.use(Path(APOLLO_DIRECTORY) / "user" / "plots" / "arthur.mplstyle")
+from user_directories import USER_DIRECTORIES
 
+plt.style.use(USER_DIRECTORIES["plots"] / "arthur.mplstyle")
+
+from apollo.dataset_functions import load_dataset_with_units, change_units
 from apollo.dynesty_plotting_functions import (
     setup_contribution_plots,
     setup_multi_figure,
@@ -31,7 +34,6 @@ from apollo.dynesty_plotting_functions import (
     make_TP_profile_plot_by_run,
 )
 from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
-
 from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
     calculate_MLE,
     calculate_percentile,
@@ -45,7 +47,15 @@ from apollo.visualization_functions import (
 
 from user.plots.plots_config import PLOT_FILETYPES
 
-CMAP_KWARGS = {
+
+class ColormapBlueprint(TypedDict):
+    lightness_minimum: float
+    lightness_maximum: float
+    saturation_minimum: float
+    saturation_maximum: float
+
+
+CMAP_KWARGS: ColormapBlueprint = {
     "lightness_minimum": 0.15,
     "lightness_maximum": 0.85,
     "saturation_minimum": 0.2,
@@ -57,13 +67,12 @@ CMAP_CO: Colormap = create_linear_colormap(["#882D60", "#AA3939"], **CMAP_KWARGS
 CMAP_CO2: Colormap = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
 CMAP_CH4: Colormap = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
 
-CMAP_CLOUDY: Colormap = create_linear_colormap(
-    [COLORS["lightcoral"], COLORS["lightcoral"]], **CMAP_KWARGS
+CMAP_CLOUDY: Colormap = create_monochromatic_linear_colormap(
+    COLORS["lightcoral"], **CMAP_KWARGS
 )
-CMAP_CLEAR: Colormap = create_linear_colormap(
-    [COLORS["cornflowerblue"], COLORS["cornflowerblue"]], **CMAP_KWARGS
+CMAP_CLEAR: Colormap = create_monochromatic_linear_colormap(
+    COLORS["cornflowerblue"], **CMAP_KWARGS
 )
-
 CMAP_CLOUD: Colormap = plt.get_cmap("Greys")
 
 PLOTTED_COMPONENTS: list[str] = ["h2o", "co", "co2", "ch4"]
@@ -71,8 +80,8 @@ PLOTTED_TITLES: list[str] = ["H$_2$O", "CO", "CO$_2$", "CH$_4$"]
 CMAPS: list[Colormap] = [CMAP_H2O, CMAP_CO, CMAP_CO2, CMAP_CH4]
 
 PADDING: float = 0.025
-HK_HARDCODED_BOUNDARIES: list[list[float, float]] = [[1.40, 1.90], [1.90, 2.50]]
-JWST_HARDCODED_BOUNDARIES: list[list[float, float]] = [[2.85, 4.01], [4.19, 5.30]]
+HK_HARDCODED_BOUNDARIES: list[list[float]] = [[1.40, 1.90], [1.90, 2.50]]
+JWST_HARDCODED_BOUNDARIES: list[list[float]] = [[2.85, 4.01], [4.19, 5.30]]
 
 DEFAULT_SAVE_PLOT_KWARGS = dict(
     dpi=300,
@@ -88,8 +97,8 @@ SHARED_CORNERPLOT_KWARGS = dict(
     MLE_color="gold",
 )
 
-PLOTTING_COLOR: str = "lightcoral"
 PLOTTING_COLORS: dict[str, str] = {
+    "Ross458c": "crimson",
     "HK+JWST_2M2236_logg-normal": "darkorange",
     "HK+JWST_2M2236_logg-free": "lightsalmon",
     "JWST-only_2M2236_logg-free": "mediumpurple",
@@ -97,28 +106,24 @@ PLOTTING_COLORS: dict[str, str] = {
 }
 MLE_COLOR = "gold"
 
-USER_PATH = Path.cwd() / "user"
-USER_DIRECTORY_PATH: Path = USER_PATH / "directories.yaml"
-with open(USER_DIRECTORY_PATH, "r") as directory_file:
-    directory_dict: dict[str, Pathlike] = yaml.safe_load(directory_file)
-    RESULTS_DIRECTORY = USER_PATH / directory_dict["results"]
-
-OBJECT_NAME = "2M2236"
-RESULTS_DIRECTORY_2M2236: Path = RESULTS_DIRECTORY / OBJECT_NAME
+RESULTS_DIRECTORY = USER_DIRECTORIES["results"]
+OBJECT_NAME: str = "2M2236"
+SPECIFIC_RESULTS_DIRECTORY: Path = RESULTS_DIRECTORY / OBJECT_NAME
 
 
 def make_multi_plots(results_directory):
     run_directories: dict[str, dict[str, Pathlike]] = unpack_results_filepaths(
         results_directory
     )
-    print(f"{run_directories=}")
 
     j = 0
     for k, (run_name, run_filepath_dict) in enumerate(run_directories.items()):
         contribution_filepath = (
-            RESULTS_DIRECTORY_2M2236 / run_name / run_filepath_dict["contributions"]
+            SPECIFIC_RESULTS_DIRECTORY / run_name / run_filepath_dict["contributions"]
         )
-        data_filepath = RESULTS_DIRECTORY_2M2236 / run_name / run_filepath_dict["data"]
+        data_filepath = (
+            SPECIFIC_RESULTS_DIRECTORY / run_name / run_filepath_dict["data"]
+        )
 
         with open(contribution_filepath, "rb") as pickle_file:
             contributions = pickle_compat.load(pickle_file)
@@ -126,20 +131,21 @@ def make_multi_plots(results_directory):
         contribution_setup = setup_contribution_plots(contributions, data_filepath)
 
         number_of_bands = len(contribution_setup["wavelength_ranges"])
-        multi_setup = setup_multi_figure(
+        multi_setup: Any = setup_multi_figure(
             number_of_contributions=len(PLOTTED_COMPONENTS),
             number_of_bands=number_of_bands,
             wavelength_ranges=contribution_setup["wavelength_ranges"],
         )
 
-        band_boundaries = (
-            JWST_HARDCODED_BOUNDARIES
-            if number_of_bands == 2
-            else HK_HARDCODED_BOUNDARIES + JWST_HARDCODED_BOUNDARIES
+        band_boundaries = list(
+            zip(
+                contribution_setup["band_lower_wavelength_limit"],
+                contribution_setup["band_upper_wavelength_limit"],
+            )
         )
 
         MLE_spectrum_filepath = (
-            RESULTS_DIRECTORY_2M2236
+            SPECIFIC_RESULTS_DIRECTORY
             / run_name
             / run_filepath_dict["MLE_model_spectrum"]
         )
@@ -185,7 +191,7 @@ def make_multi_plots(results_directory):
 
         for filetype in PLOT_FILETYPES:
             multi_figure.savefig(
-                RESULTS_DIRECTORY_2M2236
+                SPECIFIC_RESULTS_DIRECTORY
                 / run_name
                 / (run_name + f".fit-spectrum+contributions.{filetype}"),
                 **DEFAULT_SAVE_PLOT_KWARGS,
@@ -199,7 +205,7 @@ def make_TP_profile_plots(results_directory) -> None:
 
     TP_figure, TP_axis = plt.subplots(figsize=(8, 6))
     for k, (run_name, run_filepath_dict) in enumerate(run_directories.items()):
-        TP_profile_dataset = xr.load_dataset(
+        TP_profile_dataset = load_dataset_with_units(
             results_directory / run_name / run_filepath_dict["TP_dataset"]
         )
 
@@ -299,7 +305,7 @@ def make_TP_profile_plots(results_directory) -> None:
 
     for filetype in PLOT_FILETYPES:
         TP_figure.savefig(
-            RESULTS_DIRECTORY_2M2236 / f"{OBJECT_NAME}.TP_profiles.{filetype}",
+            SPECIFIC_RESULTS_DIRECTORY / f"{OBJECT_NAME}.TP_profiles.{filetype}",
             **DEFAULT_SAVE_PLOT_KWARGS,
         )
 
@@ -312,9 +318,10 @@ def make_corner_plots(
     run_directories = unpack_results_filepaths(results_directory)
 
     for k, (run_name, run_filepath_dict) in enumerate(run_directories.items()):
-        samples_dataset = xr.load_dataset(
+        samples_dataset = load_dataset_with_units(
             results_directory / run_name / run_filepath_dict["samples_dataset"]
         )
+        samples_dataset.update(change_units(samples_dataset.Rad, "Jupiter_radii"))
 
         MLE_values = calculate_MLE(samples_dataset)
 
@@ -337,9 +344,11 @@ def make_corner_plots(
                 for parameter_specs in parameters_specs.values()
             ]
 
-            group_dataset = samples_dataset.get(parameter_names)
+            group_dataset = samples_dataset.get(parameter_names).pint.dequantify()
             group_array = np.asarray(group_dataset.to_array().T)
-            group_MLE_values = np.asarray(MLE_values.get(parameter_names).to_array())
+            group_MLE_values = np.asarray(
+                MLE_values.get(parameter_names).pint.dequantify().to_array()
+            )
 
             SHARED_CORNERPLOT_KWARGS = dict(
                 weights=None,
@@ -363,7 +372,7 @@ def make_corner_plots(
 
             for filetype in PLOT_FILETYPES:
                 cornerplot_figure.savefig(
-                    RESULTS_DIRECTORY_2M2236
+                    SPECIFIC_RESULTS_DIRECTORY
                     / run_name
                     / f"{run_name}.{group_name}.{filetype}",
                     **DEFAULT_SAVE_PLOT_KWARGS,
@@ -373,6 +382,6 @@ def make_corner_plots(
 
 
 if __name__ == "__main__":
-    make_multi_plots(RESULTS_DIRECTORY_2M2236)
-    make_TP_profile_plots(RESULTS_DIRECTORY_2M2236)
-    make_corner_plots(RESULTS_DIRECTORY_2M2236)
+    make_multi_plots(SPECIFIC_RESULTS_DIRECTORY)
+    make_TP_profile_plots(SPECIFIC_RESULTS_DIRECTORY)
+    make_corner_plots(SPECIFIC_RESULTS_DIRECTORY)

@@ -48,7 +48,6 @@ def evaluate_model_spectrum(
     model_parameters: Sequence[float],
 ):
     model = model_function(model_parameters)
-    print(f"{type(model)=}: {model=}")
 
     obs_args = [
         np.asarray(model[0]),  # model spectrum in emission flux

@@ -1,0 +1,5 @@
+(1) The model spectrum name you get at the end of a retrieval has the same filename by default
+    as the down-resolved data file you get from binning and convolving via input parameter file.
+
+(2) One has to change the compiler info when setting up on different machines/clusters (just be aware).
+    Also, the compilers on the same cluster will change over time as they upgrade.
