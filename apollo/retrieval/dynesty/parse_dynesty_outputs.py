@@ -1,16 +1,18 @@
+import pickle
+from pathlib import Path
+from typing import Any, Sequence
+
 import dynesty
 import numpy as np
 from numpy.typing import ArrayLike
-from pathlib import Path
-import pickle
-from typing import Any, Sequence
 
 from apollo.general_protocols import Pathlike
 from apollo.useful_internal_functions import load_multi_yaml_file_into_dict
 
 
 def unpack_results_filepaths(
-    results_directory, directory_yaml_filename: Pathlike = "results_files.yaml"
+    results_directory: Pathlike,
+    directory_yaml_filename: Pathlike = "results_files.yaml",
 ) -> dict[str, dict[str, Pathlike]]:
     run_results_directories: dict[str, dict[str, str]] = load_multi_yaml_file_into_dict(
         Path(results_directory) / directory_yaml_filename
@@ -84,7 +86,7 @@ def load_and_filter_all_parameters_by_importance(
     )
 
     samples = compiled_parameters[is_important_enough].T
-    print(f"{np.shape(samples)=}")
+
     log_likelihoods = dynesty_results.logl[is_important_enough]
 
     return dict(samples=samples, log_likelihoods=log_likelihoods)

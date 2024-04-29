@@ -5,7 +5,19 @@ from numpy.typing import ArrayLike
 import polars as pl
 from typing import Any, Protocol
 
-from general_protocols import Measured
+##########################################
+# BOILERPLATE CODE TO RESOLVE APOLLO PATH
+from os.path import abspath
+import sys
+
+APOLLO_DIRECTORY = abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+)
+if APOLLO_DIRECTORY not in sys.path:
+    sys.path.append(APOLLO_DIRECTORY)
+##########################################
+
+from apollo.general_protocols import Measured
 
 MICRONS = u.um
 APOLLO_FLUX_UNITS = u.erg / u.s / u.cm**3

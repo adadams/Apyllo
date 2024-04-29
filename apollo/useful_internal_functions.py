@@ -3,7 +3,7 @@ from functools import reduce
 import numpy as np
 from numpy.typing import ArrayLike
 from typing import Any, Callable
-from xarray import load_dataset
+from xarray import Dataset
 import yaml
 
 from apollo.general_protocols import Pathlike
@@ -66,3 +66,16 @@ def strtobool(value: str) -> bool:
     if value in ("y", "yes", "on", "1", "true", "t"):
         return True
     return False
+
+
+def get_from_dictionary(input_dictionary: dict[str, Any], item_name: str) -> list[Any]:
+    return [entry[item_name] for entry in input_dictionary.values()]
+
+
+def get_across_dictionaries(
+    input_dictionary: dict[str, dict[str, Any]], item_name: str
+) -> dict[str, list[Any]]:
+    return {
+        name: get_from_dictionary(nested_dictionary, item_name)
+        for name, nested_dictionary in input_dictionary.items()
+    }

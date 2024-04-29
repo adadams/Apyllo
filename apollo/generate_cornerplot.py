@@ -1,9 +1,10 @@
+from typing import Any, NamedTuple, Sequence
+
+import numpy as np
 from corner import corner as cornerplot
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patheffects import withStroke
-import numpy as np
-from typing import Any, NamedTuple, Sequence
 
 
 class BaseKwargs(NamedTuple):
@@ -85,10 +86,10 @@ def generate_cornerplot(
     reference_values=None,
     reference_lowerbound=None,
     reference_upperbound=None,
-    reference_name="Reference",
+    reference_name=None,
     reference_markerstyle="*",
     reference_color="gold",
-    plot_generic_legend_labels=False,
+    plot_generic_legend_labels=True,
 ):
     if existing_figure is None:
         fig = cornerplot(
@@ -346,7 +347,7 @@ def generate_cornerplot(
                     )
 
     if reference_name is not None:
-        reference_marker.set_label("{} value".format(reference_name))
+        reference_marker.set_label(f"{reference_name} value")
     # MLE_locator.set_label(MLE_name)
 
     if plot_generic_legend_labels:

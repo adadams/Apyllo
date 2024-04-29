@@ -1,5 +1,6 @@
-from numpy import empty_like
 from typing import Any, Sequence
+
+from numpy import empty_like
 
 
 def guess_default_units_from_parameter_names(

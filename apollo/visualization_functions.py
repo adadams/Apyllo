@@ -1,7 +1,16 @@
+from typing import TypedDict
+
 import numpy as np
-from colormath.color_objects import sRGBColor, HSLColor
 from colormath.color_conversions import convert_color
+from colormath.color_objects import HSLColor, sRGBColor
 from matplotlib.colors import LinearSegmentedColormap, to_rgb
+
+
+class ColormapBlueprint(TypedDict):
+    lightness_minimum: float
+    lightness_maximum: float
+    saturation_minimum: float
+    saturation_maximum: float
 
 
 def create_linear_colormap(

@@ -6,19 +6,19 @@ from tqdm import tqdm
 from typing import Any, Callable, Sequence
 from xarray import Dataset, apply_ufunc
 
-from apollo.dataset_functions import save_dataset_with_units
+from apollo.dataset_functions import (
+    save_dataset_with_units,
+    extract_dataset_subset_by_parameter_group,
+    extract_free_parameters_from_dataset,
+    make_dataset_variables_from_dict,
+)
 from apollo.general_protocols import Pathlike
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
 from apollo.retrieval.dynesty.apollo_interface_functions import (
     prep_inputs_and_get_binned_wavelengths,
     make_dataset_from_APOLLO_parameter_file,
 )
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
-    calculate_MLE,
-    extract_dataset_subset_by_parameter_group,
-    extract_free_parameters_from_dataset,
-    make_dataset_variables_from_dict,
-)
+from apollo.retrieval.dynesty.build_and_manipulate_datasets import calculate_MLE
 from apollo.retrieval.dynesty.parse_dynesty_outputs import (
     load_and_filter_all_parameters_by_importance,
 )

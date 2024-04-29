@@ -1,20 +1,37 @@
+import sys
+from os.path import abspath
+from pathlib import Path
+from typing import Any, Iterable, Sequence, TypedDict
+
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import CSS4_COLORS as cnames
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Patch
-import numpy as np
 from numpy.typing import ArrayLike
-from pathlib import Path
-from typing import Any, NamedTuple, Sequence
+from pandas.compat import pickle_compat
+from yaml import safe_load
+
+from apollo.dataset_functions import change_units, load_dataset_with_units
+from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
+    calculate_MLE,
+    calculate_percentile,
+)
+from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
+
+APOLLO_DIRECTORY = abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+)
+sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.general_protocols import Pathlike
 from apollo.generate_cornerplot import generate_cornerplot
 from apollo.visualization_functions import (
+    convert_to_greyscale,
     create_linear_colormap,
     create_monochromatic_linear_colormap,
 )
-
-from user.plots.plots_config import PLOT_FILETYPES
+from user.plots.plots_config import DEFAULT_PLOT_FILETYPES
 
 CMAP_KWARGS = {
     "lightness_minimum": 0.15,
@@ -47,7 +64,6 @@ PLOTTED_TITLES = ["H$_2$O", "CO", "CO$_2$", "CH$_4$"]
 CMAPS = [CMAP_H2O, CMAP_CO, CMAP_CO2, CMAP_CH4]
 
 PADDING = 0.025
-JWST_HARDCODED_BOUNDARIES = [[2.85, 4.01], [4.19, 5.30]]
 
 DEFAULT_SAVE_PLOT_KWARGS = dict(
     dpi=300,
@@ -104,12 +120,7 @@ def setup_contribution_plots(
             for band_break in band_breaks[1:]
         ]
     )
-    wavelength_ranges = np.array(
-        [
-            band_upper_wavelength_limit - band_lower_wavelength_limit
-            for i in range(number_of_bands)
-        ]
-    )
+    wavelength_ranges = band_upper_wavelength_limit - band_lower_wavelength_limit
 
     return dict(
         contributions_max=contributions_max,
@@ -123,26 +134,30 @@ def setup_contribution_plots(
     )
 
 
+class MultiFigure(TypedDict):
+    figure: plt.Figure
+    gridspec: GridSpec
+
+
 def setup_multi_figure(
     number_of_contributions: int,
     number_of_bands: int,
     wavelength_ranges: Sequence[float],
-) -> plt.figure, GridSpec:
+) -> MultiFigure:
+    figure = plt.Figure(figsize=(40, 30))
 
-    fig = plt.figure(figsize=(40, 30))
-    gs = fig.add_gridspec(
+    gridspec = figure.add_gridspec(
         nrows=number_of_contributions + 2,
         ncols=number_of_bands,
         height_ratios=[4, 2] + ([3] * number_of_contributions),
-        width_ratios=(1 + 2 * PADDING) * wavelength_ranges,
-        wspace=0.1,
+        width_ratios=wavelength_ranges,
     )
 
-    return dict(figure=fig, gridspec=gs)
+    return dict(figure=figure, gridspec=gridspec)
 
 
 def make_spectrum_and_residual_axes(
-    figure: plt.figure, gridspec: GridSpec, band_index: int
+    figure: plt.Figure, gridspec: GridSpec, band_index: int
 ) -> list[plt.axis]:
     spectrum_ax = figure.add_subplot(gridspec[0, band_index])
     residual_ax = figure.add_subplot(gridspec[1, band_index], sharex=spectrum_ax)
@@ -150,7 +165,7 @@ def make_spectrum_and_residual_axes(
     return spectrum_ax, residual_ax
 
 
-class MultiFigureBlueprint(NamedTuple):
+class MultiFigureBlueprint(TypedDict):
     contributions: dict[str, ArrayLike]
     list_of_band_boundaries: Sequence[Sequence[float]]
     band_breaks: Sequence[Sequence[float]]
@@ -163,19 +178,76 @@ class MultiFigureBlueprint(NamedTuple):
     number_of_parameters: int
 
 
-def make_spectrum_figure() -> list[plt.figure, plt.axis]:
-    pass
+def generate_spectrum_plot_by_band(
+    spectrum_axis: Iterable[plt.Axes],
+    wavelengths: Sequence[float],
+    data: Sequence[float],
+    model: Sequence[float],
+    error: Sequence[float],
+    model_title: str,
+    plot_color: str,
+    errorbar_kwargs: dict[Any] = dict(
+        color="#444444", fmt="x", linewidth=0, elinewidth=2, alpha=1, zorder=-3
+    ),
+    spectrum_kwargs: dict[Any] = dict(
+        # color=plot_color,
+        # label=model_title,
+        linewidth=3,
+        linestyle="solid",
+        alpha=1,
+        zorder=2,  # 2-j
+    ),
+) -> plt.Axes:
+    wavelength_min: float = np.min(wavelengths)
+    wavelength_max: float = np.max(wavelengths)
+    wavelength_range: float = wavelength_max - wavelength_min
 
+    xmin = wavelength_min - PADDING * wavelength_range
+    xmax = wavelength_max + PADDING * wavelength_range
+    spectrum_axis.set_xlim([xmin, xmax])
 
-def calculate_and_print_chi_squared(
-    residuals: ArrayLike, number_of_parameters: int
-) -> float:
-    reduced_chi_squared = np.sum(residuals**2) / (
-        np.shape(residuals)[0] - number_of_parameters
+    spectrum_axis.errorbar(wavelengths, data, error, **errorbar_kwargs)
+
+    spectrum_axis.plot(
+        wavelengths,
+        model,
+        color=plot_color,
+        label=model_title,
+        **spectrum_kwargs,
     )
 
-    print(f"Reduced chi squared is {reduced_chi_squared}")
-    return reduced_chi_squared
+    return spectrum_axis
+
+
+def plot_alkali_lines_on_spectrum(spectrum_axis: plt.Axes) -> plt.Axes:
+    alkali_line_positions = [1.139, 1.141, 1.169, 1.177, 1.244, 1.253, 1.268]
+
+    wavelength_min, wavelength_max = spectrum_axis.get_xlim()
+    assert all(
+        wavelength_min <= alkali_line_positions <= wavelength_max
+    ), "At least one of the alkali lines may fall outside your plotted wavelength range."
+
+    [
+        spectrum_axis.axvline(
+            line_position_in_microns,
+            linestyle="dashed",
+            linewidth=1.5,
+            zorder=-10,
+            color="#888888",
+        )
+        for line_position_in_microns in alkali_line_positions
+    ]
+
+    y_text = spectrum_axis.get_ylim()[0] + 0.1 * np.diff(spectrum_axis.get_ylim())
+    spectrum_axis.text(
+        (1.169 + 1.177) / 2, y_text, "KI", fontsize=20, horizontalalignment="center"
+    )
+    spectrum_axis.text(
+        (1.244 + 1.253) / 2, y_text, "KI", fontsize=20, horizontalalignment="center"
+    )
+    spectrum_axis.text(1.268, y_text, "NaI", fontsize=20, horizontalalignment="center")
+
+    return spectrum_axis
 
 
 def calculate_residuals(
@@ -186,14 +258,27 @@ def calculate_residuals(
     return (models - datas) / errors
 
 
-def plot_on_residual_axis(
+def calculate_chi_squared(residuals: ArrayLike, number_of_parameters: int) -> float:
+    reduced_chi_squared = np.sum(residuals**2) / (
+        np.shape(residuals)[0] - number_of_parameters
+    )
+
+    return reduced_chi_squared
+
+
+def generate_residual_plot_by_band(
     residual_axis: plt.axis,
     wavelengths: ArrayLike,
     residuals: ArrayLike,
-    plot_kwargs: dict[str, Any],
-    axhline_kwargs: dict[str, Any] = None,
-    yaxis_label_fontsize: int | float = None,
-) -> plt.axis:
+    plot_color: str,
+    plot_kwargs: dict[str, Any] = dict(
+        linewidth=3, linestyle="solid", alpha=1, zorder=2
+    ),
+    axhline_kwargs: dict[str, Any] = dict(
+        y=0, color="#444444", linewidth=2, linestyle="dashed", zorder=-10
+    ),
+    # yaxis_label_fontsize: int | float = 26,
+) -> plt.Axes:
     wave_min = np.min(wavelengths)
     wave_max = np.max(wavelengths)
     xmin = wave_min - PADDING * np.abs(wave_max - wave_min)
@@ -206,33 +291,24 @@ def plot_on_residual_axis(
     ymax = residual_ymax + PADDING * np.abs(residual_ymax - residual_ymin)
     residual_axis.set_ylim([ymin, ymax])
 
-    # color=plot_color,
-    # linewidth=3,
-    # linestyle=linestyles[j],
-    # alpha=1,
-    # zorder=2 - j,
-    residual_axis.plot(wavelengths, residuals, **plot_kwargs)
+    residual_axis.plot(wavelengths, residuals, color=plot_color, **plot_kwargs)
 
-    if not axhline_kwargs:
-        axhline_kwargs = dict(
-            y=0, color="#444444", linewidth=2, linestyle="dashed", zorder=-10
-        )
     residual_axis.axhline(**axhline_kwargs)
 
     residual_axis.minorticks_on()
 
-    if yaxis_label_fontsize:
-        residual_axis.set_ylabel(r"Residual/$\sigma$", fontsize=yaxis_label_fontsize)
+    # if yaxis_label_fontsize:
+    #    residual_axis.set_ylabel(r"Residual/$\sigma$", fontsize=yaxis_label_fontsize)
 
     return residual_axis
 
 
-def make_contribution_figure_per_species() -> list[plt.figure, plt.axis]:
+def make_contribution_figure_per_species() -> list[plt.Figure, plt.axis]:
     pass
 
 
 def plot_multi_figure_iteration(
-    figure: plt.figure,
+    figure: plt.Figure,
     gridspec: GridSpec,
     contributions: dict[str, ArrayLike],
     list_of_band_boundaries: Sequence[Sequence[float]],
@@ -249,7 +325,7 @@ def plot_multi_figure_iteration(
     spectrum_axes=None,
     residual_axes=None,
     contribution_columns=None,
-) -> list[plt.figure, tuple[plt.axis]]:
+) -> list[plt.Figure, tuple[plt.Axes]]:
     j = iteration_index
 
     if (
@@ -261,12 +337,7 @@ def plot_multi_figure_iteration(
         residual_axes = []
         contribution_columns = []
 
-    residuals = (models - datas) / errors
-
-    residual_ymin = np.nanmin(residuals)
-    residual_ymax = np.nanmax(residuals)
-    residual_ymin = residual_ymin - PADDING * np.abs(residual_ymax - residual_ymin)
-    residual_ymax = residual_ymax + PADDING * np.abs(residual_ymax - residual_ymin)
+    residuals = calculate_residuals(datas, models, errors)
 
     for i, band_boundaries in enumerate(list_of_band_boundaries):
         if j == 0:
@@ -288,58 +359,19 @@ def plot_multi_figure_iteration(
         model = models[band_condition]
         residual = residuals[band_condition]
 
-        xmin = np.min(wavelengths_in_band)
-        xmax = np.max(wavelengths_in_band)
-        xmin = xmin - PADDING * np.abs(xmax - xmin)
-        xmax = xmax + PADDING * np.abs(xmax - xmin)
-
-        spectrum_ax.set_xlim([xmin, xmax])
-
-        linestyles = ["solid", "solid", "solid", "solid"]
-        spectrum_ax.errorbar(
+        spectrum_ax = generate_spectrum_plot_by_band(
+            spectrum_ax,
             wavelengths_in_band,
             data,
-            error,
-            color="#444444",
-            fmt="x",
-            linewidth=0,
-            elinewidth=2,
-            alpha=1,
-            zorder=-3,
-        )
-        spectrum_ax.plot(
-            wavelengths_in_band,
             model,
-            color=plot_color,
-            linewidth=3,
-            linestyle=linestyles[j],
-            alpha=1,
-            zorder=2 - j,
-            label=model_title,
+            error,
+            model_title,
+            plot_color,
         )
 
-        # if i==0 and j==0:
-        # [spectrum_ax.axvline(line_position, linestyle="dashed", linewidth=1.5, zorder=-10, color="#888888")
-        # for line_position in [1.139, 1.141, 1.169, 1.177, 1.244, 1.253, 1.268]]
-        # y_text = spectrum_ax.get_ylim()[0] + 0.1*np.diff(spectrum_ax.get_ylim())
-        # spectrum_ax.text((1.169+1.177)/2, y_text, "KI", fontsize=20, horizontalalignment="center")
-        # spectrum_ax.text((1.244+1.253)/2, y_text, "KI", fontsize=20, horizontalalignment="center")
-        # spectrum_ax.text(1.268, y_text, "NaI", fontsize=20, horizontalalignment="center")
-
-        residual_ax.plot(
-            wavelengths_in_band,
-            residual,
-            color=plot_color,
-            linewidth=3,
-            linestyle=linestyles[j],
-            alpha=1,
-            zorder=2 - j,
+        residual_ax = generate_residual_plot_by_band(
+            residual_ax, wavelengths_in_band, residual, plot_color
         )
-        residual_ax.axhline(
-            0, color="#444444", linewidth=2, linestyle="dashed", zorder=-10
-        )
-        residual_ax.set_ylim([residual_ymin, residual_ymax])
-        residual_ax.minorticks_on()
 
         if i == 0:
             spectrum_ax.set_ylabel("Flux (erg s$^{-1}$ cm$^{-3}$)", fontsize=36)
@@ -352,11 +384,10 @@ def plot_multi_figure_iteration(
                 handles=legend_handles, labels=legend_labels, fontsize=22, frameon=False
             )  # , loc="upper center")
 
-        # residual = (model-data)/error
-        reduced_chi_squared = np.sum(residual**2) / (
-            np.shape(residual)[0] - number_of_parameters
+        reduced_chi_squared = calculate_chi_squared(residual, number_of_parameters)
+        print(
+            f"Reduced chi squared for the band with boundaries {band_boundaries} is {reduced_chi_squared}."
         )
-        print("Reduced chi squared is {}".format(reduced_chi_squared))
 
         spectrum_ax.tick_params(axis="x", labelsize=26)
         spectrum_ax.tick_params(axis="y", labelsize=26)
@@ -403,19 +434,51 @@ def plot_multi_figure_iteration(
                 contributions[comp].index,
                 contributions[comp].columns,
             )
+            contribution_contour_resolution_reduction_factor = 8
+
             contribution_ax.contourf(
-                x[:, band_breaks[i] : band_breaks[i + 1] : 8],
-                y[:, band_breaks[i] : band_breaks[i + 1] : 8],
-                np.log10(cf).T[:, band_breaks[i] : band_breaks[i + 1] : 8],
+                x[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
+                y[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
+                np.log10(cf).T[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
                 cmap=cont_cmap,
                 levels=contributions_max - np.array([4, 2, 0]),
                 alpha=0.66,
                 zorder=0,
             )
             contribution_ax.contour(
-                x[:, band_breaks[i] : band_breaks[i + 1] : 8],
-                y[:, band_breaks[i] : band_breaks[i + 1] : 8],
-                np.log10(cf).T[:, band_breaks[i] : band_breaks[i + 1] : 8],
+                x[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
+                y[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
+                np.log10(cf).T[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
                 colors=outline_color,
                 levels=contributions_max - np.array([2]),
                 # linewidths=3,
@@ -428,9 +491,24 @@ def plot_multi_figure_iteration(
                 cloud_cf = contributions["cloud"]
                 x, y = np.meshgrid(cloud_cf.index, cloud_cf.columns)
                 contribution_ax.contourf(
-                    x[:, band_breaks[i] : band_breaks[i + 1] : 8],
-                    y[:, band_breaks[i] : band_breaks[i + 1] : 8],
-                    cloud_cf.to_numpy().T[:, band_breaks[i] : band_breaks[i + 1] : 8],
+                    x[
+                        :,
+                        band_breaks[i] : band_breaks[
+                            i + 1
+                        ] : contribution_contour_resolution_reduction_factor,
+                    ],
+                    y[
+                        :,
+                        band_breaks[i] : band_breaks[
+                            i + 1
+                        ] : contribution_contour_resolution_reduction_factor,
+                    ],
+                    cloud_cf.to_numpy().T[
+                        :,
+                        band_breaks[i] : band_breaks[
+                            i + 1
+                        ] : contribution_contour_resolution_reduction_factor,
+                    ],
                     colors="k",
                     # cmap=cmap_cloud,
                     alpha=0.75,
@@ -440,10 +518,23 @@ def plot_multi_figure_iteration(
                 )
                 if i == 0:
                     contribution_ax.contour(
-                        x[:, band_breaks[i] : band_breaks[i + 1] : 8],
-                        y[:, band_breaks[i] : band_breaks[i + 1] : 8],
+                        x[
+                            :,
+                            band_breaks[i] : band_breaks[
+                                i + 1
+                            ] : contribution_contour_resolution_reduction_factor,
+                        ],
+                        y[
+                            :,
+                            band_breaks[i] : band_breaks[
+                                i + 1
+                            ] : contribution_contour_resolution_reduction_factor,
+                        ],
                         cloud_cf.to_numpy().T[
-                            :, band_breaks[i] : band_breaks[i + 1] : 8
+                            :,
+                            band_breaks[i] : band_breaks[
+                                i + 1
+                            ] : contribution_contour_resolution_reduction_factor,
                         ],
                         colors="#DDDDDD",
                         linestyles="solid",
@@ -464,7 +555,7 @@ def plot_multi_figure_iteration(
     return figure, spectrum_axes, residual_axes, contribution_columns
 
 
-def wrap_contributions_plot(figure: plt.figure, gridspec: GridSpec):
+def wrap_contributions_plot(figure: plt.Figure, gridspec: GridSpec):
     contributions_ax = figure.add_subplot(gridspec[2:, :])
     contributions_ax.spines["top"].set_color("none")
     contributions_ax.spines["bottom"].set_color("none")
@@ -484,29 +575,100 @@ def wrap_contributions_plot(figure: plt.figure, gridspec: GridSpec):
     return figure, contributions_ax
 
 
-def plot_multi_figure(
-    figure: plt.figure,
-    gridspec: GridSpec,
-    list_of_multi_figure_kwargs: Sequence[MultiFigureBlueprint],
-    object_label: str,
+def make_multi_plots(
+    results_directory: Pathlike,
+    contribution_components: list[str],
+    plotting_colors: dict[str, str],
+    save_kwargs: dict[str, Any] = DEFAULT_SAVE_PLOT_KWARGS,
+    plot_filetypes: Iterable[str] = DEFAULT_PLOT_FILETYPES,
 ):
-    for j, multi_figure_kwargs in enumerate(list_of_multi_figure_kwargs):
-        plot_multi_figure_iteration(
-            figure, gridspec, iteration_index=j, **multi_figure_kwargs
+    run_directories: dict[str, dict[str, Pathlike]] = unpack_results_filepaths(
+        results_directory
+    )
+
+    j = 0
+    for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
+        run_directories.items(), plotting_colors.items()
+    ):
+        contribution_filepath = (
+            results_directory / run_name / run_filepath_dict["contributions"]
+        )
+        data_filepath: Path = results_directory / run_name / run_filepath_dict["data"]
+
+        with open(contribution_filepath, "rb") as pickle_file:
+            contributions = pickle_compat.load(pickle_file)
+
+        contribution_setup = setup_contribution_plots(contributions, data_filepath)
+
+        number_of_bands: int = len(contribution_setup["wavelength_ranges"])
+        multi_setup: MultiFigure = setup_multi_figure(
+            number_of_contributions=len(contribution_components),
+            number_of_bands=number_of_bands,
+            wavelength_ranges=contribution_setup["wavelength_ranges"],
         )
 
-    wrap_contributions_plot(figure, gridspec)
-
-    for filetype in PLOT_FILETYPES:
-        plt.savefig(
-            object_label + ".fit-spectrum+contributions.{}".format(filetype),
-            **DEFAULT_SAVE_PLOT_KWARGS,
+        band_boundaries = list(
+            zip(
+                contribution_setup["band_lower_wavelength_limit"],
+                contribution_setup["band_upper_wavelength_limit"],
+            )
         )
 
-    return figure
+        MLE_spectrum_filepath = (
+            results_directory / run_name / run_filepath_dict["MLE_model_spectrum"]
+        )
+        _, _, model_spectrum, _, _, _ = np.loadtxt(MLE_spectrum_filepath).T
+
+        multi_figure_kwargs = MultiFigureBlueprint(
+            contributions=contributions,
+            list_of_band_boundaries=band_boundaries,
+            band_breaks=contribution_setup["band_breaks"],
+            contributions_max=contribution_setup["contributions_max"],
+            wavelengths=contribution_setup["wavelengths"],
+            datas=contribution_setup["data"],
+            models=model_spectrum,
+            errors=contribution_setup["errors"],
+            model_title=run_name,
+            number_of_parameters=23,
+        )
+
+        if j == 0:
+            multi_figure, spectrum_axes, residual_axes, contribution_columns = (
+                plot_multi_figure_iteration(
+                    **multi_setup,
+                    iteration_index=j,
+                    plot_color=plotting_color,
+                    **multi_figure_kwargs,
+                )
+            )
+
+        else:
+            multi_figure, spectrum_axes, residual_axes, contribution_columns = (
+                plot_multi_figure_iteration(
+                    **multi_setup,
+                    iteration_index=j,
+                    plot_color=plotting_color,
+                    **multi_figure_kwargs,
+                    spectrum_axes=spectrum_axes,
+                    residual_axes=residual_axes,
+                    contribution_columns=contribution_columns,
+                )
+            )
+
+        wrap_contributions_plot(multi_figure, multi_setup["gridspec"])
+
+        for filetype in plot_filetypes:
+            multi_figure.savefig(
+                results_directory
+                / run_name
+                / (run_name + f".fit-spectrum+contributions.{filetype}"),
+                **save_kwargs,
+            )
+
+    return None
 
 
-class TPPlotBlueprint(NamedTuple):
+class TPPlotBlueprint(TypedDict):
     log_pressures: Sequence[float]
     TP_profile_percentiles: Sequence[Sequence[float]]
     MLE_TP_profile: Sequence[float]
@@ -516,13 +678,13 @@ class TPPlotBlueprint(NamedTuple):
     object_label: str
 
 
-class CloudLayerPlotBlueprint(NamedTuple):
+class CloudLayerPlotBlueprint(TypedDict):
     minimum_log_pressure: float
     layer_thickness_in_log_pressure: float
 
 
 def make_TP_profile_plot_by_run(
-    figure: plt.figure,
+    figure: plt.Figure,
     axis: plt.axis,
     log_pressures: Sequence[float],
     TP_profile_percentiles: Sequence[Sequence[float]],
@@ -533,7 +695,7 @@ def make_TP_profile_plot_by_run(
     object_label: str,
     legend_dict: dict[str, Any] = None,
     cloud_layer_kwargs: CloudLayerPlotBlueprint = None,
-) -> list[plt.figure, plt.axis]:
+) -> list[plt.Figure, plt.axis]:
     T_minus_Nsigma, T_median, T_plus_Nsigma = TP_profile_percentiles
     # axis.plot(T_median, log_pressures, color=color, linewidth=1.5)
     axis.fill_betweenx(
@@ -585,7 +747,127 @@ def make_TP_profile_plot_by_run(
     return figure, axis
 
 
-class CornerplotBlueprint(NamedTuple):
+def make_combined_TP_profile_plot(
+    results_directory: Pathlike,
+    combined_title: str,
+    plotting_colors: dict[str, str],
+    plot_kwargs=dict(figsize=(8, 6)),
+    save_kwargs: dict[str, Any] = DEFAULT_SAVE_PLOT_KWARGS,
+    plot_filetypes: Iterable[str] = DEFAULT_PLOT_FILETYPES,
+) -> None:
+    run_directories = unpack_results_filepaths(results_directory)
+
+    TP_figure, TP_axis = plt.subplots(**plot_kwargs)
+
+    for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
+        run_directories.items(), plotting_colors.items()
+    ):
+        TP_profile_dataset = load_dataset_with_units(
+            results_directory / run_name / run_filepath_dict["TP_dataset"]
+        )
+
+        TP_1sigma_percentiles = calculate_percentile(
+            TP_profile_dataset, percentiles=[16, 50, 84], axis=0
+        ).temperatures.to_numpy()
+
+        MLE_TP_profile_dataset = calculate_MLE(
+            TP_profile_dataset
+        ).temperatures.to_numpy()
+
+        TP_plot_kwargs = TPPlotBlueprint(
+            log_pressures=TP_profile_dataset.log_pressure,
+            TP_profile_percentiles=np.asarray(TP_1sigma_percentiles),
+            MLE_TP_profile=MLE_TP_profile_dataset,
+            plot_color=plotting_color,
+            MLE_plot_color=plotting_color,
+            plot_label=run_name,
+            object_label=run_name,
+        )
+
+        TP_figure, TP_axis = make_TP_profile_plot_by_run(
+            TP_figure, TP_axis, **TP_plot_kwargs
+        )
+
+    original_handles, original_labels = TP_axis.get_legend_handles_labels()
+
+    def replace_confidence_interval_legend_entries_with_general_entry(handles, labels):
+        confidence_interval_entry_indices = [
+            i for i, label in enumerate(labels) if "confidence" in label
+        ]
+
+        first_confidence_interval_handle = handles[confidence_interval_entry_indices[0]]
+        first_confidence_interval_handle.set_facecolor(
+            convert_to_greyscale(first_confidence_interval_handle.get_facecolor())
+        )
+        first_confidence_interval_handle.set_edgecolor(
+            convert_to_greyscale(first_confidence_interval_handle.get_edgecolor())
+        )
+
+        non_confidence_handles = [
+            handle
+            for i, handle in enumerate(handles)
+            if i not in confidence_interval_entry_indices
+        ]
+        non_confidence_labels = [
+            label
+            for i, label in enumerate(labels)
+            if i not in confidence_interval_entry_indices
+        ]
+
+        def get_general_and_specfic_parts_of_legend_label(labels):
+            general_labels = []
+            specific_labels = []
+
+            for label in labels:
+                separator = ", "
+                separator_index = label.index(separator)
+                general_labels.append(label[:separator_index])
+                specific_labels.append(label[separator_index + len(separator) :])
+
+            return general_labels[0], specific_labels
+
+        general_confidence_interval_label, specific_labels = (
+            get_general_and_specfic_parts_of_legend_label(
+                [
+                    label
+                    for i, label in enumerate(labels)
+                    if i in confidence_interval_entry_indices
+                ]
+            )
+        )
+
+        return (
+            non_confidence_handles + [first_confidence_interval_handle],
+            [
+                label + ", " + specific_label.replace("_", " ")
+                for label, specific_label in zip(non_confidence_labels, specific_labels)
+            ]
+            + [general_confidence_interval_label],
+        )
+
+    handles, labels = replace_confidence_interval_legend_entries_with_general_entry(
+        original_handles, original_labels
+    )
+
+    TP_axis.legend(
+        handles,
+        labels,
+        fontsize=10,
+        facecolor="#444444",
+        framealpha=0.25,
+        loc="upper right",
+    )
+
+    for filetype in plot_filetypes:
+        TP_figure.savefig(
+            results_directory / f"{combined_title}.TP_profiles.{filetype}",
+            **save_kwargs,
+        )
+
+    return None
+
+
+class CornerplotBlueprint(TypedDict):
     samples: ArrayLike
     weights: ArrayLike
     group_name: str
@@ -606,9 +888,77 @@ class CornerplotBlueprint(NamedTuple):
 
 def plot_cornerplot_by_group(
     group_name: str, cornerplot_kwargs: CornerplotBlueprint
-) -> plt.figure:
-    print(f"Group: {group_name}")
+) -> plt.Figure:
+    print(f"Plotting corner plot for {group_name} parameters.")
 
-    figure, _, _ = generate_cornerplot(**cornerplot_kwargs._asdict())
+    figure, _, _ = generate_cornerplot(**cornerplot_kwargs)
 
     return figure
+
+
+def make_corner_plots(
+    results_directory: Pathlike,
+    plotting_colors: dict[str, str],
+    shared_cornerplot_kwargs: dict[str, Any],
+    plot_group_filepath: Pathlike = None,
+    save_kwargs: dict[str, Any] = DEFAULT_SAVE_PLOT_KWARGS,
+    plot_filetypes: dict[str, Any] = DEFAULT_PLOT_FILETYPES,
+) -> None:
+    run_directories = unpack_results_filepaths(results_directory)
+
+    for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
+        run_directories.items(), plotting_colors.items()
+    ):
+        samples_dataset = load_dataset_with_units(
+            results_directory / run_name / run_filepath_dict["samples_dataset"]
+        )
+        samples_dataset.update(change_units(samples_dataset.Rad, "Jupiter_radii"))
+
+        MLE_values = calculate_MLE(samples_dataset)
+
+        if plot_group_filepath is None:
+            plot_group_filepath = Path(results_directory) / "cornerplot_groups.yaml"
+
+        with open(plot_group_filepath, "r") as plot_group_file:
+            cornerplot_groups = safe_load(plot_group_file)
+
+        for group_name, parameters_specs in cornerplot_groups.items():
+            parameter_names = list(parameters_specs.keys())
+
+            print_names = [
+                parameter_specs["print_name"]
+                for parameter_specs in parameters_specs.values()
+            ]
+
+            print_formats = [
+                parameter_specs["print_format"]
+                for parameter_specs in parameters_specs.values()
+            ]
+
+            group_dataset = samples_dataset.get(parameter_names).pint.dequantify()
+            group_array = np.asarray(group_dataset.to_array().T)
+            group_MLE_values = np.asarray(
+                MLE_values.get(parameter_names).pint.dequantify().to_array()
+            )
+
+            cornerplot_kwargs = CornerplotBlueprint(
+                samples=group_array,
+                group_name=group_name,
+                parameter_names=print_names,
+                color=plotting_color,
+                MLE_values=group_MLE_values,
+                string_formats=print_formats,
+                **shared_cornerplot_kwargs,
+            )
+
+            cornerplot_figure = plot_cornerplot_by_group(group_name, cornerplot_kwargs)
+
+            for filetype in plot_filetypes:
+                cornerplot_figure.savefig(
+                    results_directory
+                    / run_name
+                    / f"{run_name}.{group_name}.{filetype}",
+                    **save_kwargs,
+                )
+
+    return None

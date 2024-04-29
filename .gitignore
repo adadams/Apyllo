@@ -8,3 +8,6 @@ internal_structure_notes.txt
 
 user/results/*/
 APOLLO.code-workspace
+user/results/plot_dynesty_results.py
+user/results/2M2236_table_example.tex
+user/results/HD106906_table_example.tex

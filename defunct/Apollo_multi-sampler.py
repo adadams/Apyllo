@@ -1,34 +1,35 @@
 from __future__ import print_function
-from inspect import getmembers, isfunction
-import os
-import sys
-import numpy as np
-import pandas as pd
-import pickle
-import scipy.optimize as op
-from scipy.interpolate import interp1d
-from scipy.stats import invgamma
-from distutils.util import strtobool
-import emcee
-import schwimmbad
-import matplotlib
-# Used on Discover because the GUI backend does not work there. Comment out to use 'Manual' mode.
-#matplotlib.use('pdf')
-import matplotlib.pyplot as plt
 
-import dynesty
+import os
+import pickle
+import sys
+from distutils.util import strtobool
+from inspect import getmembers, isfunction
 
 # Comment out corner if not supported on your platform.
 import corner
-from src import wrapPlanet
-from src import ApolloFunctions as af
-from src import AddNoise
+import dynesty
+import emcee
+import matplotlib
 
+# Used on Discover because the GUI backend does not work there. Comment out to use 'Manual' mode.
+#matplotlib.use('pdf')
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import schwimmbad
+import scipy.optimize as op
+from scipy.interpolate import interp1d
+from scipy.stats import invgamma
+from src import AddNoise
+from src import ApolloFunctions as af
+from src import wrapPlanet
+
+from user.cloud_models import cloud_models
 from user.defaults import *
 from user.P_points import P_profiles
-from user.priors import priors, evaluate_default_priors
+from user.priors import evaluate_default_priors, priors
 from user.TP_models import TP_models
-from user.cloud_models import cloud_models
 
 # An attempt at adding a multi-nested sampling option.
 #multinest = True

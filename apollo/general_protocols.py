@@ -1,12 +1,24 @@
 from dataclasses import dataclass
 from functools import partial
 from numpy.typing import NDArray
-import numpy as np
 from pathlib import Path
 from pint import Quantity, UnitRegistry
 from typing import Any, Callable, IO, NamedTuple, Optional, Protocol, Sequence
 from xarray import Dataset, DataArray
-from pint_xarray import unit_registry as ureg
+
+##########################################
+# BOILERPLATE CODE TO RESOLVE APOLLO PATH
+from os.path import abspath
+import sys
+
+APOLLO_DIRECTORY = abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+)
+sys.path.append(APOLLO_DIRECTORY)
+##########################################
+
+from apollo.dataset_functions import prep_unit_registry
+from user_directories import USER_DIRECTORY
 
 Pathlike = Path | str
 Filelike = Pathlike | IO
@@ -47,10 +59,6 @@ class Parametrized(Protocol):
     def generate_profile_function(self, *args, **kwargs) -> None: ...
 
 
-ADDITIONAL_UNITS_FILE = Path.cwd() / "user" / "additional_units.txt"
-ureg.load_definitions(ADDITIONAL_UNITS_FILE)
-
-
 @dataclass
 class ModelBuilder:
     """Docstring goes here."""
@@ -80,14 +88,13 @@ class ModelBuilder:
 
 def organize_parameter_data_in_xarray(
     name: str,
-    print_name: str,
     value: float | int,
     unit: str,
     coords: dict[str, Sequence[float]] = None,
-    **other_info,
+    **extra_attributes,
 ):
     dataarray_construction_kwargs = dict(
-        data=value, name=name, attrs=dict(print_name=print_name, **other_info)
+        data=value, name=name, attrs=dict(**extra_attributes)
     )
 
     if coords is not None:
@@ -104,11 +111,17 @@ class XarrayParameter:
 
     @classmethod
     def from_measurement_and_unit(
-        cls, *, name: str, print_name: str, value: float | int, unit: str, **other_info
+        cls,
+        *,
+        name: str,
+        print_name: str,
+        value: float | int,
+        unit: str,
+        **extra_attributes,
     ):
         data_array = DataArray(data=value).pint.quantify(unit)
         data_array = data_array.assign_attrs(
-            name=name, print_name=print_name, **other_info
+            name=name, print_name=print_name, **extra_attributes
         )
 
         return cls(name=name, print_name=print_name, data=data_array)
@@ -133,8 +146,7 @@ class Parameter:
     def from_measurement_and_unit(
         cls, *, name: str, print_name: str, value: float | int, unit: str
     ):
-        unit_registry = UnitRegistry()
-        unit_registry.load_definitions(ADDITIONAL_UNITS_FILE)
+        unit_registry = prep_unit_registry()
         quantity = value * unit_registry(unit)
 
         return cls(name, print_name, quantity)
@@ -148,8 +160,7 @@ class Parameter:
         return cls.from_measurement_and_unit
 
     def __post_init__(self, value, unit, print_formatter):
-        unit_registry = UnitRegistry()
-        unit_registry.load_definitions(ADDITIONAL_UNITS_FILE)
+        unit_registry = prep_unit_registry()
         self._quantity = value * unit_registry(unit)
         self._quantity.default_format = f"{print_formatter}P"
 

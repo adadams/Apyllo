@@ -1,20 +1,32 @@
 from pathlib import Path
 
-from data import (
+from apollo.data.read_into_polars import (
     merge_bands_into_single_dataframe,
     read_APOLLO_data,
     reduce_float_precision_to_correct_band_finding,
     write_Polars_data_to_APOLLO_file,
 )
+from apollo.data.read_into_xarray import read_APOLLO_data_into_dataset
 
 
-DATA_DIRECTORY = Path("~/Documents/Astronomy/2019/Retrieval/Code/Data")
+DATA_DIRECTORY = Path.home() / "Documents/Astronomy/2019/Retrieval/Code/Data"
 MOCK_L_DATA_DIRECTORY = DATA_DIRECTORY / "mock-L"
 MOCK_L_TEST_DATA_FILE = (
     MOCK_L_DATA_DIRECTORY / "mock-L.2022-12-08.forward-model.PLO.JHK.noised.dat"
 )
-
+# %%
 JHK_band_names = ["J", "H", "Ks"]
+# %%
+test_data = read_APOLLO_data_into_dataset(
+    MOCK_L_TEST_DATA_FILE, band_names=JHK_band_names
+).groupby("band")
+# %%
+test_data["J"]
+# %%
+test_data["H"]
+# %%
+test_data["Ks"]
+# %%
 
 JHK_data = read_APOLLO_data(MOCK_L_TEST_DATA_FILE, JHK_band_names)
 
@@ -77,7 +89,7 @@ write_Polars_data_to_APOLLO_file(
     pre_save_processing_functions=(reduce_float_precision_to_correct_band_finding,),
 )
 
-output_filepath_as_dat = Path(DATA_DIRECTORY / "2M2236b_HK+G395H_R500.dat")
+output_filepath_as_dat: Path = Path(DATA_DIRECTORY / "2M2236b_HK+G395H_R500.dat")
 
 write_Polars_data_to_APOLLO_file(
     merged_2M2236b_data_at_R500,

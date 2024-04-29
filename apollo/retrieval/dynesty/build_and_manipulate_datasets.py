@@ -1,6 +1,7 @@
+from typing import NamedTuple, Sequence
+
 from numpy import percentile
 from pint import Unit
-from typing import Any, NamedTuple, Sequence
 from xarray import Dataset, apply_ufunc
 
 from apollo.general_protocols import organize_parameter_data_in_xarray
@@ -17,6 +18,7 @@ class RunDatasetBlueprint(NamedTuple):
 
 def make_run_parameter_dataset(
     parameter_names: Sequence[str],
+    parameter_print_names: Sequence[str],
     parameter_values: Sequence[float],
     parameter_units: Sequence[Unit | str],
     parameter_default_string_formattings: Sequence[str],
@@ -43,39 +45,6 @@ def make_run_parameter_dataset(
                 parameter_group_names,
             )
         }
-    )
-
-
-def make_dataset_variables_from_dict(
-    input_dict, dimension_names: Sequence[str]
-) -> dict[str, dict[str, Any]]:
-    return {
-        variable_name: dict(dims=dimension_names, data=variable_values)
-        for variable_name, variable_values in input_dict.items()
-    }
-
-
-def extract_dataset_subset_by_parameter_group(
-    dataset: Dataset, group_name: str, attribute_label: str = "base_group"
-) -> Dataset:
-    return dataset.get(
-        [
-            data_var
-            for data_var in dataset.data_vars
-            if dataset.get(data_var).attrs[attribute_label] == group_name
-        ]
-    )
-
-
-def extract_free_parameters_from_dataset(
-    dataset: Dataset, attribute_label: str = "base_group"
-) -> Dataset:
-    return dataset.get(
-        [
-            data_var
-            for data_var in dataset.data_vars
-            if dataset.get(data_var).attrs[attribute_label] != "Derived"
-        ]
     )
 
 
