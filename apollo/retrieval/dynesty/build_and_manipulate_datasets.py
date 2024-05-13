@@ -1,13 +1,13 @@
-from typing import NamedTuple, Sequence
+from typing import Sequence, TypedDict
 
 from numpy import percentile
 from pint import Unit
 from xarray import Dataset, apply_ufunc
 
-from apollo.general_protocols import organize_parameter_data_in_xarray
+from apollo.dataset.dataset_functions import organize_parameter_data_in_xarray
 
 
-class RunDatasetBlueprint(NamedTuple):
+class RunDatasetBlueprint(TypedDict):
     parameter_names: Sequence[str]
     parameter_values: Sequence[float]
     parameter_units: Sequence[Unit | str]
@@ -25,7 +25,6 @@ def make_run_parameter_dataset(
     parameter_group_names: Sequence[str],
     log_likelihoods: Sequence[float],
 ) -> Dataset:
-
     return Dataset(
         {
             parameter_name: organize_parameter_data_in_xarray(

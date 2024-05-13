@@ -10,19 +10,21 @@ APOLLO_DIRECTORY = abspath(
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
-from user.results.latex_table_writer import (
+from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
+    unpack_results_filepaths,  # noqa: E402
+)
+from user.results.latex_table_writer import (  # noqa: E402
     format_percentiles_and_MLEs_and_store_as_attributes,
     load_results_dataset_and_store_formatted_table_text,
     stitch_rows_across_runs,
 )
-from user.results.process_dynesty_results import RESULTS_DIRECTORY
+from user.results.process_dynesty_results import RESULTS_DIRECTORY  # noqa: E402
 
 
 def print_tables_in_Per_style(header_name: str, rows: Sequence[str]) -> None:
     number_of_separators: int = rows[0].count("&")
 
-    header_line: str = fr"{header_name} {"& "*number_of_separators} \\"
+    header_line: str = rf"{header_name} {"& "*number_of_separators} \\"
 
     print(header_line)
     print(r"\hline")
@@ -51,6 +53,7 @@ if __name__ == "__main__":
         )
         for run_name, results_filepaths in results_filepath_dictionary.items()
     }
+    print(f"{list(samples_datasets_with_table_entries.keys())=}")
 
     fundamental_parameter_names: list[str] = ["Rad", "Log(g)", "Teff", "C/O", "[Fe/H]"]
     fundamental_parameter_titles: list[str] = [
@@ -68,7 +71,7 @@ if __name__ == "__main__":
 
     fundamental_value_rows: list[str] = stitch_rows_across_runs(
         *fundamental_datasets.values(),
-        parameter_print_names=fundamental_parameter_titles
+        parameter_print_names=fundamental_parameter_titles,
     )
 
     print_tables_in_Per_style("Fundamental", fundamental_value_rows)

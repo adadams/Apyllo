@@ -159,9 +159,8 @@ def change_properties_of_parameters(
 
 
 def get_parameters_as_objects(input_parameter_dict):
-    make_APOLLO_input_parameter_objects = (
-        lambda parameter_name, parameter_dict: APOLLOParameterEntry(**parameter_dict)
-    )
+    def make_APOLLO_input_parameter_objects(parameter_name, parameter_dict):
+        return APOLLOParameterEntry(**parameter_dict)
 
     return change_properties_of_parameters(
         input_parameter_dict, make_APOLLO_input_parameter_objects

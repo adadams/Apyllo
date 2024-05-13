@@ -30,7 +30,7 @@ def is_parameter_header_line(line_name: str, line_entries: list[Any]):
 def parse_APOLLO_input_file(input_file: TextIO, delimiter="\t"):
     input_file_reader = reader(input_file, delimiter=delimiter)
 
-    header_dict = {}
+    header_dict: dict[str, Any] = {}
     for row in input_file_reader:
         line_name, *line_entries = [element.strip() for element in row if element]
 

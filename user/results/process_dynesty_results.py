@@ -1,7 +1,7 @@
 ##########################################
 # BOILERPLATE CODE TO RESOLVE APOLLO PATH
-from os.path import abspath
 import sys
+from os.path import abspath
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -11,21 +11,21 @@ sys.path.append(APOLLO_DIRECTORY)
 
 from pathlib import Path
 from typing import Any
+
 from xarray import Dataset
 
-from apollo.general_protocols import Pathlike
-from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
+from apollo.convenience_types import Pathlike
 from apollo.retrieval.dynesty.apollo_interface_functions import (
     get_TP_function_from_APOLLO_parameter_file,
 )
+from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
 from apollo.retrieval.dynesty.prepare_final_results_datasets import (
-    compile_results_into_dataset,
     compile_contributions_into_dataset,
+    compile_results_into_dataset,
     prepare_MLE_dataset_from_results_dataset,
-    prepare_TP_profile_dataset_from_results_dataset,
     prepare_model_spectra_dataset_from_free_parameters_dataset,
+    prepare_TP_profile_dataset_from_results_dataset,
 )
-
 from user_directories import USER_DIRECTORIES
 
 RESULTS_DIRECTORY: Pathlike = USER_DIRECTORIES["results"]

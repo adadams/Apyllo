@@ -1,0 +1,19 @@
+# Each entry is a column in a csv-formatted file with spaces as separators,
+# and no header.
+[wavelength_bin_starts]
+units = 'micrometers'
+
+[wavelength_bin_ends]
+units = 'micrometers'
+
+[spectrum]
+units = 'ergs / second / centimeters**3'
+
+[lower_errors]
+units = 'ergs / second / centimeters**3'
+
+[upper_errors]
+units = 'ergs / second / centimeters**3'
+
+[spectrum_with_noise]
+units = 'ergs / second / centimeters**3'

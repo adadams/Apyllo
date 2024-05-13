@@ -1,43 +1,57 @@
-import numpy as np
-from os import PathLike
-from pathlib import Path
-from typing import Any, Sequence
-from xarray import Dataset
-from yaml import safe_load
-
-##########################################
-# BOILERPLATE CODE TO RESOLVE APOLLO PATH
-from os.path import abspath
 import sys
+from os import PathLike
+from os.path import abspath
+from pathlib import Path
+from pprint import pprint
+from typing import Any, Sequence
+
+import numpy as np
+import tomllib
+from numpy.typing import ArrayLike
+from xarray import Dataset
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
 )
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
-##########################################
 
-from apollo.spectral import get_wavelengths_from_wavelength_bins
+from apollo.dataset.dataset_functions import (  # noqa: E402
+    make_dataset_variables_from_dict,  # noqa: E402
+)
+from apollo.spectral import get_wavelengths_from_wavelength_bins  # noqa: E402
 
-with open("apollo/data/APOLLO_data_format.yaml", "r") as data_format_file:
-    APOLLO_DATA_FORMAT = safe_load(data_format_file)
+with open("apollo/data/APOLLO_data_units.toml", "rb") as data_format_file:
+    APOLLO_DATA_FORMAT = tomllib.load(data_format_file)
+
+pprint(APOLLO_DATA_FORMAT)
+
+
+def read_data_array_into_dictionary(
+    data_array: ArrayLike, attributes: dict[str, dict[str, Any]] = None
+) -> dict[str, Any]:
+    if attributes is None:
+        attributes = {}
+
+    variable_dictionary: dict[str, ArrayLike] = {
+        variable_name: data_array[:, i]
+        for i, variable_name in enumerate(attributes.keys())
+    }
+    return make_dataset_variables_from_dict(
+        variable_dictionary, "wavelength", attributes
+    )
 
 
 def read_APOLLO_data_into_dictionary(
-    filepath: PathLike, data_file_format: dict[str, dict[str, Any]]
+    filepath: PathLike, data_format: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     data_as_numpy = np.loadtxt(filepath, dtype=np.float32).T
 
-    return {
-        name: {"data": data_row, "dims": "wavelength", "attrs": format_attributes}
-        for (name, format_attributes), data_row in zip(
-            data_file_format.items(), data_as_numpy
-        )
-    }
+    return read_data_array_into_dictionary(data_as_numpy, data_format)
 
 
 def make_wavelength_coordinate_dictionary_from_APOLLO_data_dictionary(
-    APOLLO_data_dictionary: dict[str, float]
+    APOLLO_data_dictionary: dict[str, float],
 ) -> dict[str, Any]:
     return {
         "dims": "wavelength",

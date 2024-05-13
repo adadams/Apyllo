@@ -1,9 +1,6 @@
 import sys
-
-##########################################
-# BOILERPLATE CODE TO RESOLVE APOLLO PATH
 from os.path import abspath
-from typing import Callable, Sequence
+from typing import Callable
 
 from xarray import Dataset
 
@@ -11,11 +8,9 @@ APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
 )
 sys.path.append(APOLLO_DIRECTORY)
-from apollo.dataset_functions import load_dataset_with_units
-
-##########################################
-from apollo.general_protocols import Pathlike
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
+from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.dataset.dataset_functions import load_dataset_with_units  # noqa: E402
+from apollo.retrieval.dynesty.build_and_manipulate_datasets import (  # noqa: E402
     calculate_MLE,
     calculate_percentile,
 )
@@ -99,7 +94,11 @@ def stitch_rows_across_runs(
 def load_results_dataset_and_store_formatted_table_text(
     samples_dataset_filepath: Pathlike,
     formatting_function: Callable[[Dataset], Dataset],
+    radius_units: str = "Jupiter_radii",
 ) -> Dataset:
     samples_dataset: Dataset = load_dataset_with_units(samples_dataset_filepath)
+
+    if "Rad" in samples_dataset.data_vars:
+        samples_dataset["Rad"] = samples_dataset["Rad"].pint.to(radius_units)
 
     return formatting_function(samples_dataset)

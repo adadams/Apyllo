@@ -1,12 +1,13 @@
 from collections import ChainMap
 from functools import reduce
-import numpy as np
-from numpy.typing import ArrayLike
 from typing import Any, Callable
-from xarray import Dataset
-import yaml
 
-from apollo.general_protocols import Pathlike
+import numpy as np
+import yaml
+from numpy.typing import ArrayLike
+from xarray import Dataset
+
+from apollo.convenience_types import Pathlike
 
 
 def compose(*functions):

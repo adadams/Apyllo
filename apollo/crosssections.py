@@ -1,13 +1,15 @@
 from dataclasses import dataclass
-import numpy as np
 from os import PathLike
 from pathlib import Path
-from typing import NamedTuple, Protocol
+from typing import Protocol
 from warnings import warn
+
+import numpy as np
 from xarray import DataArray, Dataset
 
 
-class OpacityHeader(NamedTuple):
+@dataclass
+class OpacityHeader:
     number_of_pressure_layers: int
     minimum_log_pressure: float
     maximum_log_pressure: float

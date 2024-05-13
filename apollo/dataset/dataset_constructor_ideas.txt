@@ -1,0 +1,26 @@
+What should go into a dataset constructor?
+
+We want a way to take simply organized information about a set of data
+and construct an xarray "dataset" from it, with proper dimensions and units.
+
+There is
+    - the actual data (say, arrays of wavelengths, spectral intensity, etc.),
+    - "metadata" (units, dimensions, print names, any other attributes).
+
+One could assume the actual data comes in in arrays or similar. For the metadata,
+I think we want to be pretty flexible. For example, I could have a .toml file with
+entries for each component with units.
+
+I wonder if it's "cleaner" to have a constructor of dataarrays from individual variables,
+then combine them into a dataset. I actually think the native constructor for dataarrays is
+pretty straightforward, and one could even have an xarray Variable as an intermediate step.
+It looks like the main difference is that the Variable only specifies the name of the dim-
+ension(s), whereas dataarrays actually contain coordinate data that can then be mapped onto
+dimensions.
+
+So you could require a Variable-like structure with
+    (1) the data (numpy array),
+    (2) the name of the coordinate/dimension (e.g. wavelength), and
+    (3) the units.
+
+Easy!

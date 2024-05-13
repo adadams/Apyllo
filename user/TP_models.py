@@ -1,12 +1,10 @@
 import numpy as np
-from user.defaults import minP, maxP, minT, maxT, tgray, vres
 from scipy.interpolate import PchipInterpolator as monotonic_interpolation
 from scipy.ndimage import gaussian_filter1d as gaussian_smoothing
 
+from user.defaults import maxP, maxT, minP, minT, tgray, vres
 from user.model_module import ModelModule
-
 from user.priors import priors
-
 
 ###############################################################################
 ######################### Define model functions here. ########################
@@ -135,9 +133,8 @@ def sample_dependent_prior(
     # If there are user-specified priors in individual temperature nodes that aren't
     # just the min/max possible temperatures, check to see if they are within the bounds
     # of the dependent priors. If not, discard them.
-    set_bound = lambda initial, minimum, maximum: np.min(
-        [np.max([initial, minimum, minT]), maximum, maxT]
-    )
+    def set_bound(initial, minimum, maximum):
+        return np.min([np.max([initial, minimum, minT]), maximum, maxT])
 
     # The lower and upper bounds are expected to be the final 2 parameters.
     lower_bounds, upper_bounds = np.asarray(distribution_parameter_sets)[:, -2:].T

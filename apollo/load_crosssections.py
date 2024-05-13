@@ -1,14 +1,11 @@
 # %%
-import numpy as np
 from pathlib import Path
-import polars as pl
-from pprint import pprint
-from xarray import Dataset
 
 from crosssections import (
     create_crosssection_catalog,
     load_crosssections_into_dataset,
 )
+from xarray import Dataset
 
 OPACITY_DIRECTORY = Path("/Volumes/ResearchStorage/Opacities_0v10")
 GAS_OPACITY_DIRECTORY = OPACITY_DIRECTORY / "gases"
@@ -40,5 +37,4 @@ opacity_dataset
 # opacities_interpd = opacity_dataset.interp(
 #    pressures=Ps, temperatures=Ts, wavelengths=waves, assume_sorted=True
 # )
-
 # %%

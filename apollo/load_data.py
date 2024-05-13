@@ -1,13 +1,16 @@
+import sys
+from os.path import abspath
 from pathlib import Path
 
-from apollo.data.read_into_polars import (
-    merge_bands_into_single_dataframe,
-    read_APOLLO_data,
-    reduce_float_precision_to_correct_band_finding,
-    write_Polars_data_to_APOLLO_file,
+APOLLO_DIRECTORY = abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
 )
-from apollo.data.read_into_xarray import read_APOLLO_data_into_dataset
+if APOLLO_DIRECTORY not in sys.path:
+    sys.path.append(APOLLO_DIRECTORY)
 
+from apollo.data.read_data_into_xarray import (
+    read_APOLLO_data_into_dataset,  # noqa: E402
+)
 
 DATA_DIRECTORY = Path.home() / "Documents/Astronomy/2019/Retrieval/Code/Data"
 MOCK_L_DATA_DIRECTORY = DATA_DIRECTORY / "mock-L"
@@ -28,7 +31,12 @@ test_data["H"]
 test_data["Ks"]
 # %%
 
-JHK_data = read_APOLLO_data(MOCK_L_TEST_DATA_FILE, JHK_band_names)
+JHK_data = read_APOLLO_data_into_dataset(
+    MOCK_L_TEST_DATA_FILE, band_names=JHK_band_names
+).groupby("band")
+# %%
+JHK_data
+# %%
 
 # print(f"mock-L: {JHK_data}")
 
@@ -37,7 +45,7 @@ _2M2236_DATA_FILE = _2M2236_DATA_DIRECTORY / "2M2236_HK.dat"
 
 HK_band_names = ["H", "Ks"]
 
-HK_data = read_APOLLO_data(_2M2236_DATA_FILE, HK_band_names)
+HK_data = read_APOLLO_data_into_dataset(_2M2236_DATA_FILE, HK_band_names)
 H_data = HK_data["H"]
 K_data = HK_data["Ks"]
 # print(f"2M2236 b: {HK_data}")
@@ -48,7 +56,7 @@ downsampled_H = H_data.down_resolve(convolve_factor=4, new_resolution=500)
 downsampled_K = K_data.down_resolve(convolve_factor=4, new_resolution=500)
 # print(downsampled_K)
 
-
+# %%
 NIRSpec_band_names = ["NRS1", "NRS2"]
 
 RYAN_2M2236_DATA_FILE = (

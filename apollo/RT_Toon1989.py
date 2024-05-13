@@ -1,6 +1,5 @@
 import numpy as np
 from numpy.typing import ArrayLike
-
 from useful_internal_functions import interleave
 
 c = 2.99792458e10  # in CGS

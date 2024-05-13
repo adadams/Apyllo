@@ -1,0 +1,37 @@
+# Fundamental
+Rad =      { print_name = '$R/R_\mathrm{J}$', print_format = '.2f', units = 'Jupiter_radii' }
+'Log(g)' = { print_name = '$\\log g$',        print_format = '.2f', units = 'dimensionless' }
+
+# Gases
+h2o =      { print_name = '[H2O]',  print_format = '.2f', units = 'dimensionless' }
+co =       { print_name = '[CO]',   print_format = '.2f', units = 'dimensionless' }
+co2 =      { print_name = '[CO2]',  print_format = '.2f', units = 'dimensionless' }
+ch4 =      { print_name = '[CH4]',  print_format = '.2f', units = 'dimensionless' }
+Lupu_alk = { print_name = '[Na+K]', print_format = '.2f', units = 'dimensionless' }
+h2s =      { print_name = '[H2S]',  print_format = '.2f', units = 'dimensionless' }
+nh3 =      { print_name = '[NH3]',  print_format = '.2f', units = 'dimensionless' }
+
+# T-P
+T_m4 =  { print_name = 'T$_{-4}$',  print_format = '.0f', units = 'kelvin' }
+T_m3 =  { print_name = 'T$_{-3}$',  print_format = '.0f', units = 'kelvin' }
+T_m2 =  { print_name = 'T$_{-2}$',  print_format = '.0f', units = 'kelvin' }
+T_m1 =  { print_name = 'T$_{-1}$',  print_format = '.0f', units = 'kelvin' }
+T_0 =   { print_name = 'T$_{0}$',   print_format = '.0f', units = 'kelvin' }
+T_0p5 = { print_name = 'T$_{0.5}$', print_format = '.0f', units = 'kelvin' }
+T_1 =   { print_name = 'T$_{1}$',   print_format = '.0f', units = 'kelvin' }
+T_1p5 = { print_name = 'T$_{1.5}$', print_format = '.0f', units = 'kelvin' }
+T_2 =   { print_name = 'T$_{2}$',   print_format = '.0f', units = 'kelvin' }
+T_2p5 = { print_name = 'T$_{2.5}$', print_format = '.0f', units = 'kelvin' }
+
+# Calibration
+deltaL =        { print_name = '$\Delta\lambda \left(\mu\mathrm{m}\right)$', print_format = '.2f', units = 'nanometers' }
+scaleG395_ch1 = { print_name = '$\Delta f_\mathrm{G 395, ch1}$',             print_format = '.2f', units = 'dimensionless' }
+scaleG395_ch2 = { print_name = '$\Delta f_\mathrm{G 395, ch2}$',             print_format = '.2f', units = 'dimensionless' }
+logf =          { print_name = '$\log f_\sigma$',                            print_format = '.2f', units = 'dimensionless' }
+
+# Derived
+Mass =          { print_name = '$M/M_\mathrm{J}$', print_format = '.2f', units = 'Jupiter_masses' }
+'C/O' =         { print_name = 'C/O',              print_format = '.2f', units = 'dimensionless' }
+'[Fe/H]' =      { print_name = '[Fe/H]',           print_format = '.2f', units = 'dimensionless' }
+Teff =          { print_name = 'T$_\mathrm{eff}$', print_format = '.0f', units = 'kelvin' }
+

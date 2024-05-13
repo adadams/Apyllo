@@ -6,32 +6,39 @@ from typing import Any, Iterable, Sequence, TypedDict
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import CSS4_COLORS as cnames
+from matplotlib.colors import Colormap
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Patch
 from numpy.typing import ArrayLike
 from pandas.compat import pickle_compat
 from yaml import safe_load
 
-from apollo.dataset_functions import change_units, load_dataset_with_units
+from apollo.dataset.dataset_functions import change_units, load_dataset_with_units
+from apollo.make_forward_model_from_file import evaluate_model_spectrum
+from apollo.retrieval.dynesty.apollo_interface_functions import (
+    create_MLE_output_dictionary,
+    prep_inputs_and_get_binned_wavelengths,
+)
 from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
     calculate_MLE,
     calculate_percentile,
 )
 from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
+from user.models.inputs.parse_APOLLO_inputs import write_parsed_input_to_output
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.general_protocols import Pathlike
-from apollo.generate_cornerplot import generate_cornerplot
-from apollo.visualization_functions import (
+from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.generate_cornerplot import generate_cornerplot  # noqa: E402
+from apollo.visualization_functions import (  # noqa: E402
     convert_to_greyscale,
     create_linear_colormap,
     create_monochromatic_linear_colormap,
 )
-from user.plots.plots_config import DEFAULT_PLOT_FILETYPES
+from user.plots.plots_config import DEFAULT_PLOT_FILETYPES  # noqa: E402
 
 CMAP_KWARGS = {
     "lightness_minimum": 0.15,
@@ -45,25 +52,25 @@ APOLLO_USER_PLOTS_DIRECTORY = (
 )
 plt.style.use(APOLLO_USER_PLOTS_DIRECTORY / "arthur.mplstyle")
 
-CMAP_H2O = create_linear_colormap(["#226666", "#2E4172"], **CMAP_KWARGS)
-CMAP_CO = create_linear_colormap(["#882D60", "#AA3939"], **CMAP_KWARGS)
-CMAP_CO2 = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
-CMAP_CH4 = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
+CMAP_H2O: Colormap = create_linear_colormap(["#226666", "#2E4172"], **CMAP_KWARGS)
+CMAP_CO: Colormap = create_linear_colormap(["#882D60", "#AA3939"], **CMAP_KWARGS)
+CMAP_CO2: Colormap = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
+CMAP_CH4: Colormap = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
 
-CMAP_CLOUDY = create_linear_colormap(
+CMAP_CLOUDY: Colormap = create_linear_colormap(
     [cnames["lightcoral"], cnames["lightcoral"]], **CMAP_KWARGS
 )
-CMAP_CLEAR = create_linear_colormap(
+CMAP_CLEAR: Colormap = create_linear_colormap(
     [cnames["cornflowerblue"], cnames["cornflowerblue"]], **CMAP_KWARGS
 )
 
-CMAP_CLOUD = plt.get_cmap("Greys")
+CMAP_CLOUD: Colormap = plt.get_cmap("Greys")
 
-PLOTTED_COMPONENTS = ["h2o", "co", "co2", "ch4"]
-PLOTTED_TITLES = ["H$_2$O", "CO", "CO$_2$", "CH$_4$"]
-CMAPS = [CMAP_H2O, CMAP_CO, CMAP_CO2, CMAP_CH4]
+PLOTTED_COMPONENTS: list[str] = ["h2o", "co", "co2", "ch4"]
+PLOTTED_TITLES: list[str] = ["H$_2$O", "CO", "CO$_2$", "CH$_4$"]
+CMAPS: list[Colormap] = [CMAP_H2O, CMAP_CO, CMAP_CO2, CMAP_CH4]
 
-PADDING = 0.025
+PADDING: float = 0.025
 
 DEFAULT_SAVE_PLOT_KWARGS = dict(
     dpi=300,
@@ -106,7 +113,7 @@ def setup_contribution_plots(
         + 1,
         len(contributions[FIDUCIAL_SPECIES].index),
     ]
-    number_of_bands = len(band_breaks) - 1
+    # number_of_bands = len(band_breaks) - 1
 
     band_lower_wavelength_limit = np.asarray(
         [
@@ -668,6 +675,10 @@ def make_multi_plots(
     return None
 
 
+def plot_spectra_across_runs() -> None:
+    pass
+
+
 class TPPlotBlueprint(TypedDict):
     log_pressures: Sequence[float]
     TP_profile_percentiles: Sequence[Sequence[float]]
@@ -962,3 +973,43 @@ def make_corner_plots(
                 )
 
     return None
+
+
+def plot_MLE_spectrum_of_one_run_against_different_data(
+    run_directory: Pathlike, other_data_filepath: Pathlike
+) -> None:
+    fitting_results_filepath = run_directory["fitting_results"]
+    derived_fit_parameters_filepath = run_directory["derived_fit_parameters"]
+    input_parameter_filepath = run_directory["input_parameters"]
+
+    MLE_output_dict = create_MLE_output_dictionary(
+        fitting_results_filepath,
+        derived_fit_parameters_filepath,
+        input_parameter_filepath,
+    )
+    MLE_output_dict["header"]["Data"] = (str(Path(other_data_filepath)),)
+
+    output_MLE_filename = Path(
+        str(input_parameter_filepath).replace("input", "retrieved_alt-data")
+    )
+    with open(output_MLE_filename, "w", newline="") as output_file:
+        write_parsed_input_to_output(
+            MLE_output_dict["header"], MLE_output_dict["parameters"], output_file
+        )
+
+    prepped_inputs_and_binned_wavelengths = prep_inputs_and_get_binned_wavelengths(
+        output_MLE_filename
+    )
+    prepped_inputs = prepped_inputs_and_binned_wavelengths["prepped_inputs"]
+    binned_wavelengths = prepped_inputs_and_binned_wavelengths["binned_wavelengths"]
+
+    observed_binned_model_spectrum = evaluate_model_spectrum(**prepped_inputs)
+
+    different_data, different_errors = np.loadtxt(other_data_filepath).T[2:4]
+
+    return {
+        "wavelengths": binned_wavelengths,
+        "data": different_data,
+        "errors": different_errors,
+        "spectrum": observed_binned_model_spectrum,
+    }

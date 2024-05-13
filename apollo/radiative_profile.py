@@ -27,7 +27,7 @@ class Scatters(Protocol):
 class Material(Absorbs, Scatters, Protocol):
     """Placeholder for a thing that both absorbs and scatters."""
 
-    pass
+    ...
 
 
 class UsesCrossSections(Material, Protocol):

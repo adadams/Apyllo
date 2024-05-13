@@ -1,23 +1,24 @@
-import astropy.units as u
+import sys
+from abc import abstractmethod
 from dataclasses import dataclass
-import numpy as np
-from numpy.typing import ArrayLike
-import polars as pl
+from os.path import abspath
 from typing import Any, Protocol
 
-##########################################
-# BOILERPLATE CODE TO RESOLVE APOLLO PATH
-from os.path import abspath
-import sys
+import astropy.units as u
+import numpy as np
+from numpy.typing import ArrayLike
+from xarray import Dataset
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
 )
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
-##########################################
 
-from apollo.general_protocols import Measured
+from apollo.convenience_types import Measured  # noqa: E402
+from apollo.dataset.dataset_functions import (  # noqa: E402
+    make_dataset_variables_from_dict,  # noqa: E402
+)
 
 MICRONS = u.um
 APOLLO_FLUX_UNITS = u.erg / u.s / u.cm**3
@@ -49,17 +50,11 @@ def get_wavelength_bins_from_wavelengths(wavelengths):
     return wavelength_bin_starts, wavelength_bin_ends
 
 
+@dataclass
 class Spectral(Protocol):
     """Has wavelengths, possibly in binned, possibly in unbinned input format.
     Also has a corresponding spectrum that can be convolved and down-sampled in
-    resolution.
-
-    Args:
-        Protocol (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
+    resolution."""
 
     wavelength_bin_starts: ArrayLike
     wavelength_bin_ends: ArrayLike
@@ -72,96 +67,101 @@ class Spectral(Protocol):
             self.wavelength_bin_ends - self.wavelength_bin_starts
         )
 
-    def convolve(self, *args, **kwargs) -> None: ...
+    @abstractmethod
+    def convolve(self, *args, **kwargs) -> ArrayLike:
+        raise NotImplementedError
 
-    def down_bin(self, *args, **kwargs) -> None: ...
+    @abstractmethod
+    def down_bin(self, *args, **kwargs) -> ArrayLike:
+        raise NotImplementedError
 
-    def down_resolve(self, *args, **kwargs) -> None: ...
+    @abstractmethod
+    def down_resolve(self, *args, **kwargs) -> ArrayLike:
+        raise NotImplementedError
 
 
-@dataclass(slots=True)
 class Spectrum(Spectral):
-    """_summary_
-
-    Args:
-        Spectral (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-
-    dataframe: pl.DataFrame
+    def __init__(self, dataset: Dataset):
+        self._dataset: Dataset = dataset
 
     def __getattr__(self, __name: str) -> Any:
-        return self.dataframe.select(__name).to_numpy().squeeze()
+        return self._dataset.get(__name)
 
     def __repr__(self) -> str:
         return (
-            f"pixel resolution: {self.mean_resolution:.2f}, "
-            + f"data: {self.dataframe}"
+            f"pixel resolution: {self.mean_resolution:.2f}, " + f"data: {self._dataset}"
         )
 
+    @property
+    def get_wavelength_bin_starts(self) -> ArrayLike:
+        return self.wavelength_bin_starts
+
+    @property
+    def get_wavelength_bin_ends(self) -> ArrayLike:
+        return self.wavelength_bin_ends
+
+    @property
+    def get_wavelengths(self) -> ArrayLike:
+        return self.wavelengths
+
+    @property
+    def get_spectrum(self) -> ArrayLike:
+        return self.spectrum
+
     @classmethod
-    def from_elements(
+    def from_wavelengths(
         cls,
         *,
-        wavelength_bin_starts: ArrayLike,
-        wavelength_bin_ends: ArrayLike,
         wavelengths: ArrayLike,
+        wavelength_units: str = "microns",
         spectrum: ArrayLike,
-        **spectral_kwargs,
+        spectral_units: str = "erg/s/cm^3",
     ):
-        return cls(
-            pl.from_dict(
-                dict(
-                    wavelength_bin_starts=wavelength_bin_starts,
-                    wavelength_bin_ends=wavelength_bin_ends,
-                    wavelengths=wavelengths,
-                    spectrum=spectrum,
-                    **spectral_kwargs,
-                )
-            )
-        )
-
-    @classmethod
-    def from_wavelengths(cls, *, dataframe):
-        wavelengths = dataframe.select("wavelengths")
         wavelength_bin_starts, wavelength_bin_ends = (
             get_wavelength_bins_from_wavelengths(wavelengths)
         )
 
-        new_dataframe_columns = dataframe.columns
-        new_dataframe_columns.insert(
-            new_dataframe_columns.index("wavelengths"), "wavelength_bin_starts"
+        # Note: correct the syntax.
+        dataset: Dataset = make_dataset_variables_from_dict(
+            dict(
+                wavelength_bin_starts=wavelength_bin_starts,
+                wavelength_bin_ends=wavelength_bin_ends,
+                wavelength=wavelengths,
+                spectrum=spectrum,
+            ),
+            dimension_names=["wavelength"],
+            units=dict(wavelength=wavelength_units, spectrum=spectral_units),
         )
-        new_dataframe_columns.insert(
-            new_dataframe_columns.index("wavelengths") + 1, "wavelength_bin_ends"
-        )
-        dataframe_with_wavelength_bins = dataframe.with_columns(
-            wavelength_bin_starts=np.asarray(wavelength_bin_starts).squeeze(),
-            wavelength_bin_ends=np.asarray(wavelength_bin_ends).squeeze(),
-        ).select(new_dataframe_columns)
 
-        return cls(dataframe_with_wavelength_bins)
+        return cls(dataset)
 
     @classmethod
-    def from_wavelength_bins(cls, *, dataframe):
-        wavelength_bin_starts = dataframe.select("wavelength_bin_starts")
-        wavelength_bin_ends = dataframe.select("wavelength_bin_ends")
+    def from_wavelength_bins(
+        cls,
+        *,
+        wavelength_bin_starts: ArrayLike,
+        wavelength_bin_ends: ArrayLike,
+        wavelength_units: str = "microns",
+        spectrum: ArrayLike,
+        spectral_units: str = "erg/s/cm^3",
+    ):
         wavelengths = get_wavelengths_from_wavelength_bins(
             wavelength_bin_starts, wavelength_bin_ends
         )
 
-        new_dataframe_columns = dataframe.columns
-        new_dataframe_columns.insert(
-            new_dataframe_columns.index("wavelength_bin_starts") + 1, "wavelengths"
+        # Note: correct the syntax.
+        dataset: Dataset = make_dataset_variables_from_dict(
+            dict(
+                wavelength_bin_starts=wavelength_bin_starts,
+                wavelength_bin_ends=wavelength_bin_ends,
+                wavelength=wavelengths,
+                spectrum=spectrum,
+            ),
+            dimension_names=["wavelength"],
+            units=dict(wavelength=wavelength_units, spectrum=spectral_units),
         )
 
-        dataframe_with_wavelengths = dataframe.with_columns(
-            wavelengths=np.asarray(wavelengths).squeeze()
-        ).select(new_dataframe_columns)
-
-        return cls(dataframe_with_wavelengths)
+        return cls(dataset)
 
     @property
     def mean_resolution(self):
@@ -199,13 +199,6 @@ class Spectrum(Spectral):
 
 @dataclass
 class DataSpectrum(Spectrum, Measured):
-    """_summary_
-
-    Args:
-        Spectrum (_type_): _description_
-        Measured (_type_): _description_
-    """
-
     def __repr__(self) -> str:
         unit_prints = {
             value_name: unit.to_string()
@@ -227,14 +220,6 @@ class DataSpectrum(Spectrum, Measured):
         return np.asarray(self.spectrum / self.errors).mean()
 
     def convolve(self, convolve_factor):
-        """_summary_
-
-        Args:
-            convolve_factor (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
         convolved_spectrum = ConvSpec(self.spectrum, convolve_factor)
         convolved_errors = ConvSpec(self.errors, convolve_factor)
 
@@ -287,19 +272,6 @@ class DataSpectrum(Spectrum, Measured):
 
 
 def BinSpec(flux, err, wavelo, wavehi, binw):
-    """_summary_
-
-    Args:
-        flux (_type_): _description_
-        err (_type_): _description_
-        wavelo (_type_): _description_
-        wavehi (_type_): _description_
-        binw (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-
     blen = (int)(len(flux) / binw)
     binflux = np.zeros(blen)
     binerr = np.zeros(blen)
@@ -323,7 +295,6 @@ def BinSpec(flux, err, wavelo, wavehi, binw):
             fbinhi[i] = 0.000001
 
     for i in range(0, len(ibinhi)):
-
         binflux[i] = np.sum(
             flux[(int)(np.ceil(ibinlo[i])) : (int)(np.floor(ibinhi[i]))]
         )

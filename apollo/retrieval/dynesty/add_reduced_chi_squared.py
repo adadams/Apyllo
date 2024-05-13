@@ -1,5 +1,6 @@
 import sys
 from os.path import abspath
+from pprint import pprint
 from typing import Sequence
 
 import numpy as np
@@ -10,11 +11,15 @@ APOLLO_DIRECTORY = abspath(
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.data.read_into_xarray import read_APOLLO_data_into_dataset
-from apollo.dataset_functions import load_dataset_with_units
-from apollo.general_protocols import Pathlike
-from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
-from user.results.process_dynesty_results import RESULTS_DIRECTORY
+from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.data.read_data_into_xarray import (  # noqa: E402
+    read_APOLLO_data_into_dataset,  # noqa: E402
+)
+from apollo.dataset.dataset_functions import load_dataset_with_units  # noqa: E402
+from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
+    unpack_results_filepaths,  # noqa: E402
+)
+from user.results.process_dynesty_results import RESULTS_DIRECTORY  # noqa: E402
 
 
 def calculate_likelihood_error_term(
@@ -113,11 +118,6 @@ def calculate_reduced_chi_square_for_runs(
             number_of_parameters,
         ).item()
 
-        added_noise_ratio = calculate_ratio_of_added_noise_to_original_RMS_noise(
-            error_terms, added_white_noise_variance
-        ).item()
-        print(f"{run_name}: {added_noise_ratio=}")
-
     return reduced_chi_squared, direct_reduced_chi_squared
 
 
@@ -129,6 +129,14 @@ def calculate_ratio_of_added_noise_to_original_RMS_noise(
     return np.sqrt(added_white_noise_variance / original_mean_variance)
 
 
+def calculate_RMS_error_inflation_factor(
+    error_terms: Sequence[float], added_white_noise_variance: float
+) -> float:
+    return 1 + calculate_ratio_of_added_noise_to_original_RMS_noise(
+        error_terms, added_white_noise_variance
+    )
+
+
 if __name__ == "__main__":
     OBJECT_NAME = "2M2236"
 
@@ -136,8 +144,9 @@ if __name__ == "__main__":
 
     reduced_chi_squared, direct_reduced_chi_squared = (
         calculate_reduced_chi_square_for_runs(
-            SPECIFIC_RESULTS_DIRECTORY, inflate_errors=False
+            SPECIFIC_RESULTS_DIRECTORY, inflate_errors=True
         )
     )
 
-    print(f"{reduced_chi_squared=}")
+    pprint(f"{reduced_chi_squared=}")
+    pprint(f"{direct_reduced_chi_squared=}")

@@ -1,18 +1,13 @@
-from __future__ import annotations
-
-from astropy.constants import R_earth, R_jup
-from astropy.units import cm
-from dataclasses import dataclass, field, InitVar
+from dataclasses import InitVar, dataclass, field
 from functools import partial
+from typing import Callable, Sequence, TypedDict
+
 import numpy as np
 from scipy.interpolate import interp1d
-from typing import Callable, NamedTuple, Sequence
 
 from apollo.src.ApolloFunctions import GetScaOpac
 from apollo.src.wrapPlanet import PyPlanet
-
 from user.TP_models import TP_models
-
 
 # REarth_in_cm = R_earth.to(cm).value
 REarth_in_cm = 6.371e8
@@ -21,7 +16,7 @@ REarth_in_cm = 6.371e8
 RJup_in_REarth = 11.2
 
 
-class CPlanet_constructor(NamedTuple):
+class CPlanetBlueprint(TypedDict):
     observation_mode_index: int
     cloud_model_index: int
     hazetype_index: int
@@ -35,7 +30,7 @@ class CPlanet_constructor(NamedTuple):
     Teff_opacity_catalog_name: str
 
 
-class MakeModel_constructor(NamedTuple):
+class MakeModelBlueprint(TypedDict):
     model_wavelengths: Sequence[float]
     gas_species: Sequence[str]
     minimum_model_pressure: float
@@ -81,7 +76,7 @@ class MakeModel_constructor(NamedTuple):
 # end_start_index:                             int
 
 
-class ObserveModel_constructor(NamedTuple):
+class ObserveModelBlueprint(TypedDict):
     data_wavelengths: Sequence[float]
     model_wavelengths: Sequence[float]
     model_indices_by_opacity_bins: Sequence[float]
@@ -105,10 +100,10 @@ class Planet:
     """Class for wrapping the Planet class as defined in C++."""
 
     name: str
-    cclass_constructor: InitVar[CPlanet_constructor]
+    cclass_constructor: InitVar[CPlanetBlueprint]
     cclass: PyPlanet = field(init=False)
 
-    def __post_init__(self, cclass_constructor: CPlanet_constructor):
+    def __post_init__(self, cclass_constructor: CPlanetBlueprint):
         self.cclass = PyPlanet()
         cclass_args = [
             list(cclass_constructor[:5]),
@@ -117,7 +112,7 @@ class Planet:
         ]
         self.cclass.MakePlanet(*cclass_args)
 
-    def MakeModel(self, model_constructor: MakeModel_constructor):
+    def MakeModel(self, model_constructor: MakeModelBlueprint):
         def ModelFunction(
             model_parameters: Sequence[float],
             ### GetModel_kwargs below
@@ -188,9 +183,13 @@ class Planet:
             task = APOLLO_use_mode
 
             ##########################################
-            make_gaussian_profile = lambda x: x - 0.5 * (
-                np.arange(npress := np.shape(x)[-1]) - npress / 2
-            ) ** 2 / ((npress) ** 2)
+            def make_gaussian_profile(x):
+                return (
+                    x
+                    - 0.5
+                    * (np.arange((npress := np.shape(x)[-1])) - npress / 2) ** 2
+                    / npress**2
+                )
 
             if len(gases) == 0:
                 abund = np.zeros(1)
@@ -570,4 +569,4 @@ class Planet:
 
             return specflux, [mass, ctoo, fetoh, teff]
 
-        return partial(ModelFunction, **model_constructor._asdict())
+        return partial(ModelFunction, **model_constructor)

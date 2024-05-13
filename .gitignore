@@ -11,3 +11,10 @@ APOLLO.code-workspace
 user/results/plot_dynesty_results.py
 user/results/2M2236_table_example.tex
 user/results/HD106906_table_example.tex
+plot_from_pickle.py
+plot_stuff.pickle
+extensions_I_use.txt
+*.pdf
+
+plot_stuff_JWST-only_2M2236_logg-free_against_HK+JWST_2M2236_logg-free_data.pickle
+plot_stuff_JWST-only_2M2236_logg-normal_against_HK+JWST_2M2236_logg-free_data.pickle

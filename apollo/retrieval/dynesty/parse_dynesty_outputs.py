@@ -6,7 +6,7 @@ import dynesty
 import numpy as np
 from numpy.typing import ArrayLike
 
-from apollo.general_protocols import Pathlike
+from apollo.convenience_types import Pathlike
 from apollo.useful_internal_functions import load_multi_yaml_file_into_dict
 
 
@@ -61,7 +61,6 @@ def make_filter_of_dynesty_samples_by_importance(
     dynesty_results: dynesty.results.Results, importance_weight_percentile: float
 ) -> Sequence[bool]:
     importance_weights = dynesty_results.importance_weights()
-    print(f"{importance_weights=}")
     cumulative_importance_weights = np.cumsum(importance_weights[::-1])[::-1]
 
     is_important_enough = cumulative_importance_weights <= importance_weight_percentile

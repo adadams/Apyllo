@@ -1,32 +1,31 @@
-# from enum import auto, StrEnum
-from functools import partial
-import numpy as np
-import os
-from pathlib import Path
-from scipy.interpolate import interp1d
 import sys
-from typing import Callable
+from functools import partial
+from os.path import abspath
+from pathlib import Path
 
+import numpy as np
 
-from apollo.planet import (
-    CPlanet_constructor,
-    MakeModel_constructor,
-    ObserveModel_constructor,
-    Planet,
-)
-import apollo.src.ApolloFunctions as af
-from apollo.src.ApolloFunctions import GetScaOpac, NormSpec, ConvSpec, BinModel
-from apollo.src.wrapPlanet import PyPlanet as PlanetCCore
-from apollo.useful_internal_functions import strtobool
-
-from user.priors import priors, evaluate_default_priors
-from user.TP_models import TP_models
-from user.cloud_models import cloud_models
-
-APOLLO_DIRECTORY = os.path.abspath(
+APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
 )
-os.chdir(APOLLO_DIRECTORY)
+if APOLLO_DIRECTORY not in sys.path:
+    sys.path.append(APOLLO_DIRECTORY)
+
+import apollo.src.ApolloFunctions as af  # noqa: E402
+from apollo.planet import (  # noqa: E402
+    CPlanetBlueprint,
+    MakeModelBlueprint,
+    ObserveModelBlueprint,
+    Planet,
+)
+from apollo.src.ApolloFunctions import BinModel, ConvSpec, NormSpec  # noqa: E402
+
+# from apollo.src.wrapPlanet import PyPlanet as PlanetCCore  # noqa: E402
+from apollo.useful_internal_functions import strtobool  # noqa: E402
+from user.cloud_models import cloud_models  # noqa: E402
+
+# from user.priors import evaluate_default_priors, priors  # noqa: E402
+from user.TP_models import TP_models  # noqa: E402
 
 REarth_in_cm = 6.371e8
 parsec_in_cm = 3.086e18
@@ -86,7 +85,6 @@ def ReadInputsfromFile(
     override=True,
     manual=True,
 ):
-
     # Default Settings
     ######################################################################################
     name = "example"  # Bundled example file
@@ -162,7 +160,7 @@ def ReadInputsfromFile(
 
     try:
         fparams = open(settings, "r")
-    except:
+    except FileNotFoundError:
         print("\nError: input file not found.\n")
         sys.exit()
 
@@ -331,7 +329,7 @@ def ReadInputsfromFile(
     sigma = np.zeros(pllen)  # Standard errors
     bounds = np.zeros((pllen, 2))  # Bounds
     guess = np.zeros(pllen)  # Used for initial conditions
-    prior_types = [prior_type] * pllen
+    # prior_types = [prior_type] * pllen
 
     i = 0
     state = -1
@@ -362,7 +360,6 @@ def ReadInputsfromFile(
     ensparams = []
 
     for j in range(0, len(lines)):
-
         if str(lines[j]) == "Basic\n":
             state = 0
             b1 = i
@@ -423,8 +420,8 @@ def ReadInputsfromFile(
             sigma[i] = (float)(line[3])
             bounds[i, 0] = (float)(line[4])
             bounds[i, 1] = (float)(line[5])
-            if len(line) >= 9:
-                prior_functions[i] = line[8]
+            # if len(line) >= 9:
+            #    prior_functions[i] = line[8]
 
             if sigma[i] > 0.0:
                 pvars.append(plparams[i])
@@ -594,7 +591,7 @@ def ProcessInputs(
     ensparams,
     streams,
 ):
-    cluster_mode = task == "Retrieval" and parallel
+    cluster_mode = (task == "Retrieval") and parallel
 
     # Output file name: Object name, type of observation, # of parameters, and # of steps.
     if short:
@@ -760,7 +757,7 @@ def ProcessInputs(
     # print(telluric_regions)
 
     totalflux = 0
-    for i in range(0, len(binflux)):
+    for i in range(0, binlen):
         totalflux = totalflux + binflux[i] * (binhi[i] - binlo[i]) * 1.0e-4
 
     # Set statistical parameters
@@ -951,7 +948,6 @@ def ProcessInputs(
     bounds = bounds[nvars]
 
     if task == "Ensemble":
-
         esize = 1
         enstable = []
         n = 0
@@ -1008,7 +1004,7 @@ def ProcessInputs(
                 fout.write(" {0:f}".format(eplist[j][ensparams[i]]))
             fout.write("\n")
 
-    MakePlanet_kwargs = CPlanet_constructor(
+    MakePlanet_kwargs = CPlanetBlueprint(
         observation_mode_index=mode,
         cloud_model_index=cloudmod,
         hazetype_index=hazetype,
@@ -1022,7 +1018,7 @@ def ProcessInputs(
         Teff_opacity_catalog_name=lores,
     )
 
-    MakeModel_initialization_kwargs = MakeModel_constructor(
+    MakeModel_initialization_kwargs = MakeModelBlueprint(
         model_wavelengths=modwave,
         gas_species=gases,
         minimum_model_pressure=minP,
@@ -1055,7 +1051,7 @@ def ProcessInputs(
         APOLLO_use_mode=task,
     )
 
-    ModelObservable_initialization_kwargs = ObserveModel_constructor(
+    ModelObservable_initialization_kwargs = ObserveModelBlueprint(
         data_wavelengths=wavemid,
         model_wavelengths=modwave,
         model_indices_by_opacity_bins=modindex,
@@ -1099,11 +1095,11 @@ def ProcessInputs(
     )
 
 
-def MakePlanet(PlanetCCore_kwargs: CPlanet_constructor) -> Planet:
+def MakePlanet(PlanetCCore_kwargs: CPlanetBlueprint) -> Planet:
     return Planet("b", PlanetCCore_kwargs)
 
 
-def MakeObservation(observation_constructor: ObserveModel_constructor):
+def MakeObservation(observation_constructor: ObserveModelBlueprint):
     def ObservationModel(
         emission_flux: list,
         radius_parameter: float,
@@ -1296,4 +1292,4 @@ def MakeObservation(observation_constructor: ObserveModel_constructor):
 
         return binned_observation, model_observation
 
-    return partial(ObservationModel, **observation_constructor._asdict())
+    return partial(ObservationModel, **observation_constructor)

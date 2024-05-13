@@ -1,14 +1,15 @@
 from functools import lru_cache
-import numpy as np
 from typing import Any, Callable, Sequence
 
+import numpy as np
+
 from apollo.Apollo_components import (
-    ReadInputsfromFile,
-    ProcessInputs,
     MakeObservation,
     MakePlanet,
+    ProcessInputs,
+    ReadInputsfromFile,
 )
-from apollo.general_protocols import Pathlike
+from apollo.convenience_types import Pathlike
 
 OPACITY_DIRECTORY = "/Volumes/ResearchStorage/Opacities_0v10/"
 
