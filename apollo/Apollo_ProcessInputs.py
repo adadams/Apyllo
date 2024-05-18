@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from os.path import abspath
 
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -19,12 +19,12 @@ from apollo.convenience_types import Pathlike  # noqa: E402
 @dataclass
 class DataContainer:
     # NOTE: this is a clone of an existing container for APOLLO-style data.
-    wavelo: ArrayLike
-    wavehi: ArrayLike
-    wavemid: ArrayLike
-    flux: ArrayLike
-    errlo: ArrayLike
-    errhi: ArrayLike
+    wavelo: NDArray[np.float64]
+    wavehi: NDArray[np.float64]
+    wavemid: NDArray[np.float64]
+    flux: NDArray[np.float64]
+    errlo: NDArray[np.float64]
+    errhi: NDArray[np.float64]
 
 
 def read_in_observations(datain: Pathlike) -> DataContainer:
@@ -59,11 +59,11 @@ def read_in_observations(datain: Pathlike) -> DataContainer:
 
 @dataclass
 class BandParameters:
-    bandindex: ArrayLike
-    bandlo: ArrayLike
-    bandhi: ArrayLike
-    bandflux: ArrayLike
-    banderr: ArrayLike
+    bandindex: NDArray[np.float64]
+    bandlo: NDArray[np.float64]
+    bandhi: NDArray[np.float64]
+    bandflux: NDArray[np.float64]
+    banderr: NDArray[np.float64]
 
 
 def process_observations(
@@ -95,7 +95,7 @@ def process_observations(
 
 
 def calculate_wavelength_calibration_limits(
-    bounds: ArrayLike, end: list[str], e1: int
+    bounds: NDArray[np.float64], end: list[str], e1: int
 ) -> list[float]:
     if "deltaL" in end:
         pos = end.index("deltaL")

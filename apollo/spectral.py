@@ -6,7 +6,7 @@ from typing import Any, Protocol
 
 import astropy.units as u
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from xarray import Dataset
 
 APOLLO_DIRECTORY = abspath(
@@ -56,10 +56,10 @@ class Spectral(Protocol):
     Also has a corresponding spectrum that can be convolved and down-sampled in
     resolution."""
 
-    wavelength_bin_starts: ArrayLike
-    wavelength_bin_ends: ArrayLike
-    wavelengths: ArrayLike
-    spectrum: ArrayLike
+    wavelength_bin_starts: NDArray[np.float64]
+    wavelength_bin_ends: NDArray[np.float64]
+    wavelengths: NDArray[np.float64]
+    spectrum: NDArray[np.float64]
 
     @property
     def resolution(self, pixels_per_resolution_element=1):
@@ -68,15 +68,15 @@ class Spectral(Protocol):
         )
 
     @abstractmethod
-    def convolve(self, *args, **kwargs) -> ArrayLike:
+    def convolve(self, *args, **kwargs) -> NDArray[np.float64]:
         raise NotImplementedError
 
     @abstractmethod
-    def down_bin(self, *args, **kwargs) -> ArrayLike:
+    def down_bin(self, *args, **kwargs) -> NDArray[np.float64]:
         raise NotImplementedError
 
     @abstractmethod
-    def down_resolve(self, *args, **kwargs) -> ArrayLike:
+    def down_resolve(self, *args, **kwargs) -> NDArray[np.float64]:
         raise NotImplementedError
 
 
@@ -93,28 +93,28 @@ class Spectrum(Spectral):
         )
 
     @property
-    def get_wavelength_bin_starts(self) -> ArrayLike:
+    def get_wavelength_bin_starts(self) -> NDArray[np.float64]:
         return self.wavelength_bin_starts
 
     @property
-    def get_wavelength_bin_ends(self) -> ArrayLike:
+    def get_wavelength_bin_ends(self) -> NDArray[np.float64]:
         return self.wavelength_bin_ends
 
     @property
-    def get_wavelengths(self) -> ArrayLike:
+    def get_wavelengths(self) -> NDArray[np.float64]:
         return self.wavelengths
 
     @property
-    def get_spectrum(self) -> ArrayLike:
+    def get_spectrum(self) -> NDArray[np.float64]:
         return self.spectrum
 
     @classmethod
     def from_wavelengths(
         cls,
         *,
-        wavelengths: ArrayLike,
+        wavelengths: NDArray[np.float64],
         wavelength_units: str = "microns",
-        spectrum: ArrayLike,
+        spectrum: NDArray[np.float64],
         spectral_units: str = "erg/s/cm^3",
     ):
         wavelength_bin_starts, wavelength_bin_ends = (
@@ -139,10 +139,10 @@ class Spectrum(Spectral):
     def from_wavelength_bins(
         cls,
         *,
-        wavelength_bin_starts: ArrayLike,
-        wavelength_bin_ends: ArrayLike,
+        wavelength_bin_starts: NDArray[np.float64],
+        wavelength_bin_ends: NDArray[np.float64],
         wavelength_units: str = "microns",
-        spectrum: ArrayLike,
+        spectrum: NDArray[np.float64],
         spectral_units: str = "erg/s/cm^3",
     ):
         wavelengths = get_wavelengths_from_wavelength_bins(
@@ -238,18 +238,6 @@ class DataSpectrum(Spectrum, Measured):
         errors,
         new_resolution,
     ):
-        """_summary_
-
-        Args:
-            wavelength_bin_starts (_type_): _description_
-            wavelength_bin_ends (_type_): _description_
-            spectrum (_type_): _description_
-            errors (_type_): _description_
-            new_resolution (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
         original_resolution = self.mean_resolution
         bin_factor = original_resolution / new_resolution
 
@@ -332,16 +320,6 @@ def BinSpec(flux, err, wavelo, wavehi, binw):
 
 
 def ConvSpec(flux, bin_width):
-    """_summary_
-
-    Args:
-        flux (_type_): _description_
-        bin_width (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
-
     # The factor of 6 is a somewhat arbitrary choice to get
     # a wide enough window for the Gaussian kernel
     kernel_width = bin_width * 6.0

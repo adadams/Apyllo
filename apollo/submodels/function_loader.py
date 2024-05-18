@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 from functools import partial
 from typing import Any, Callable, Sequence
 
-from numpy.typing import ArrayLike
+import numpy as np
+from numpy.typing import NDArray
 
 # Protocols are for general practice for implementing something in APOLLO.
 # ABCs are for MY implementation of that something.
@@ -27,4 +28,4 @@ class FunctionLoader(ABC):
     def __repr__(self) -> str: ...
 
     @abstractmethod
-    def __call__(self, pressures: float | Sequence[float]) -> ArrayLike: ...
+    def __call__(self, pressures: float | Sequence[float]) -> NDArray[np.float64]: ...

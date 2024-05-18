@@ -6,7 +6,7 @@ from typing import IO, Any, Optional, TypedDict
 
 import numpy as np
 import tomllib
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -91,7 +91,7 @@ class PressureParameters:
     minP: float
     maxP: float
     vres: int
-    P_profile: Optional[ArrayLike]
+    P_profile: Optional[NDArray[np.float64]]
 
 
 @dataclass
@@ -324,7 +324,7 @@ def read_in_settings_from_input_file(
 
 @dataclass
 class ReadinParameters:
-    plparams: ArrayLike  # Parameter list, must be length pllen
+    plparams: NDArray[np.float64]  # Parameter list, must be length pllen
     ensparams: list[
         int
     ]  # List of indices of parameters that will be varied in ensemble mode
@@ -332,10 +332,10 @@ class ReadinParameters:
 
 @dataclass
 class ParameterDistributionParameters:
-    mu: ArrayLike  # Gaussian means, must be length pllen
-    sigma: ArrayLike  # Standard errors, must be length pllen
-    bounds: ArrayLike  # Bounds, must have dimensions (pllen, 2)
-    guess: ArrayLike  # Used for initial conditions, must be length pllen
+    mu: NDArray[np.float64]  # Gaussian means, must be length pllen
+    sigma: NDArray[np.float64]  # Standard errors, must be length pllen
+    bounds: NDArray[np.float64]  # Bounds, must have dimensions (pllen, 2)
+    guess: NDArray[np.float64]  # Used for initial conditions, must be length pllen
 
 
 @dataclass

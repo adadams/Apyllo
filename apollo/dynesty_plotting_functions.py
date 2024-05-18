@@ -9,7 +9,7 @@ from matplotlib.colors import CSS4_COLORS as cnames
 from matplotlib.colors import Colormap
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Patch
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from pandas.compat import pickle_compat
 from yaml import safe_load
 
@@ -80,7 +80,7 @@ DEFAULT_SAVE_PLOT_KWARGS = dict(
 
 
 def setup_contribution_plots(
-    contributions: dict[str, ArrayLike], data_filepath: Pathlike
+    contributions: dict[str, NDArray[np.float64]], data_filepath: Pathlike
 ):
     FIDUCIAL_SPECIES = "h2o"
     MINIMUM_BAND_BREAK_IN_MICRONS = 0.05
@@ -173,7 +173,7 @@ def make_spectrum_and_residual_axes(
 
 
 class MultiFigureBlueprint(TypedDict):
-    contributions: dict[str, ArrayLike]
+    contributions: dict[str, NDArray[np.float64]]
     list_of_band_boundaries: Sequence[Sequence[float]]
     band_breaks: Sequence[Sequence[float]]
     contributions_max: float
@@ -258,14 +258,16 @@ def plot_alkali_lines_on_spectrum(spectrum_axis: plt.Axes) -> plt.Axes:
 
 
 def calculate_residuals(
-    datas: ArrayLike,
-    models: ArrayLike,
-    errors: ArrayLike,
-) -> ArrayLike:
+    datas: NDArray[np.float64],
+    models: NDArray[np.float64],
+    errors: NDArray[np.float64],
+) -> NDArray[np.float64]:
     return (models - datas) / errors
 
 
-def calculate_chi_squared(residuals: ArrayLike, number_of_parameters: int) -> float:
+def calculate_chi_squared(
+    residuals: NDArray[np.float64], number_of_parameters: int
+) -> float:
     reduced_chi_squared = np.sum(residuals**2) / (
         np.shape(residuals)[0] - number_of_parameters
     )
@@ -275,8 +277,8 @@ def calculate_chi_squared(residuals: ArrayLike, number_of_parameters: int) -> fl
 
 def generate_residual_plot_by_band(
     residual_axis: plt.axis,
-    wavelengths: ArrayLike,
-    residuals: ArrayLike,
+    wavelengths: NDArray[np.float64],
+    residuals: NDArray[np.float64],
     plot_color: str,
     plot_kwargs: dict[str, Any] = dict(
         linewidth=3, linestyle="solid", alpha=1, zorder=2
@@ -317,7 +319,7 @@ def make_contribution_figure_per_species() -> list[plt.Figure, plt.axis]:
 def plot_multi_figure_iteration(
     figure: plt.Figure,
     gridspec: GridSpec,
-    contributions: dict[str, ArrayLike],
+    contributions: dict[str, NDArray[np.float64]],
     list_of_band_boundaries: Sequence[Sequence[float]],
     band_breaks: Sequence[Sequence[float]],
     contributions_max: float,
@@ -879,8 +881,8 @@ def make_combined_TP_profile_plot(
 
 
 class CornerplotBlueprint(TypedDict):
-    samples: ArrayLike
-    weights: ArrayLike
+    samples: NDArray[np.float64]
+    weights: NDArray[np.float64]
     group_name: str
     parameter_names: Sequence[str]
     parameter_range: Sequence[Sequence[float]]

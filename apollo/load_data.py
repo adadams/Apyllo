@@ -8,7 +8,7 @@ APOLLO_DIRECTORY = abspath(
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.data.read_data_into_xarray import (
+from apollo.data.read_data_into_xarray import (  # noqa: E402
     read_APOLLO_data_into_dataset,  # noqa: E402
 )
 
@@ -45,7 +45,12 @@ _2M2236_DATA_FILE = _2M2236_DATA_DIRECTORY / "2M2236_HK.dat"
 
 HK_band_names = ["H", "Ks"]
 
-HK_data = read_APOLLO_data_into_dataset(_2M2236_DATA_FILE, HK_band_names)
+HK_data = read_APOLLO_data_into_dataset(
+    _2M2236_DATA_FILE, band_names=HK_band_names
+).groupby("band")
+# %%
+HK_data
+# %%
 H_data = HK_data["H"]
 K_data = HK_data["Ks"]
 # print(f"2M2236 b: {HK_data}")

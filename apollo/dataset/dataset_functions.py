@@ -1,7 +1,8 @@
 from os import PathLike
 from typing import Any, Callable, Optional, Sequence, TypedDict
 
-from numpy.typing import ArrayLike
+import numpy as np
+from numpy.typing import NDArray
 from pint import UnitRegistry
 from pint_xarray import setup_registry
 from xarray import DataArray, Dataset, Variable, open_dataset
@@ -16,14 +17,14 @@ class AttributeBlueprint(TypedDict):
 
 
 class VariableBlueprint(TypedDict):
-    data: ArrayLike
+    data: NDArray[np.float64]
     dims: str | Sequence[str]
     attrs: Optional[AttributeBlueprint]
     encoding: Optional[dict[str, Any]]
 
 
 class DataArrayBlueprint(TypedDict):
-    data: ArrayLike
+    data: NDArray[np.float64]
     dims: str | Sequence[str]
     name: str
     attrs: Optional[AttributeBlueprint]
@@ -104,7 +105,7 @@ def organize_parameter_data_in_xarray(
 
 # Just a wrapper for constructing xarray.Variable objects.
 def read_data_into_xarray_variable(
-    data: ArrayLike,
+    data: NDArray[np.float64],
     dimension_names: str | Sequence[str],
     units: str | Sequence[str],
     name: Optional[str] = None,
@@ -142,7 +143,7 @@ def add_dimension_to_xarray_variable(
 
 
 def make_dataset_variables_from_dict(
-    variable_dictionary: dict[str, ArrayLike],
+    variable_dictionary: dict[str, NDArray[np.float64]],
     dimension_names: Sequence[str],
     attributes: dict[str, AttributeBlueprint] = None,
 ) -> dict[str, dict[str, Any]]:

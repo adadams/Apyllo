@@ -1,11 +1,16 @@
+from abc import ABC
 from dataclasses import dataclass
 
+import numpy as np
 from numpy.typing import NDArray
 
 
-@dataclass
-class CloudParametersAdapter:
-    pass
+class CloudParametersAdapter(ABC):
+    def make_list_of_cloud_parameters(self) -> list[float]:
+        pass
+
+    def get_cloud_model_index(self) -> int:
+        pass
 
 
 @dataclass
@@ -25,6 +30,6 @@ class ParamsSetParamsAdapter:
 
 @dataclass
 class OtherSetParamsAdapter:
-    gas_log_abundances: NDArray
-    gas_cross_sections: NDArray
-    TP_profile: NDArray
+    gas_log_abundances: NDArray[np.float64]
+    gas_cross_sections: NDArray[np.float64]
+    TP_profile: NDArray[np.float64]

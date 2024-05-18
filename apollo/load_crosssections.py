@@ -1,11 +1,12 @@
 # %%
 from pathlib import Path
 
-from crosssections import (
+from xarray import Dataset
+
+from apollo.crosssections import (
     create_crosssection_catalog,
     load_crosssections_into_dataset,
 )
-from xarray import Dataset
 
 OPACITY_DIRECTORY = Path("/Volumes/ResearchStorage/Opacities_0v10")
 GAS_OPACITY_DIRECTORY = OPACITY_DIRECTORY / "gases"

@@ -7,7 +7,7 @@ from typing import Any, Sequence
 
 import numpy as np
 import tomllib
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from xarray import Dataset
 
 APOLLO_DIRECTORY = abspath(
@@ -21,21 +21,21 @@ from apollo.dataset.dataset_functions import (  # noqa: E402
 )
 from apollo.spectral import get_wavelengths_from_wavelength_bins  # noqa: E402
 
-with open("apollo/data/APOLLO_data_units.toml", "rb") as data_format_file:
+with open("apollo/formats/APOLLO_data_file_format.toml", "rb") as data_format_file:
     APOLLO_DATA_FORMAT = tomllib.load(data_format_file)
 
 pprint(APOLLO_DATA_FORMAT)
 
 
 def read_data_array_into_dictionary(
-    data_array: ArrayLike, attributes: dict[str, dict[str, Any]] = None
+    data_array: NDArray[np.float64], attributes: dict[str, dict[str, Any]] = None
 ) -> dict[str, Any]:
     if attributes is None:
         attributes = {}
 
-    variable_dictionary: dict[str, ArrayLike] = {
-        variable_name: data_array[:, i]
-        for i, variable_name in enumerate(attributes.keys())
+    variable_dictionary: dict[str, NDArray[np.float64]] = {
+        variable_name: data_row
+        for variable_name, data_row in zip(attributes.keys(), data_array)
     }
     return make_dataset_variables_from_dict(
         variable_dictionary, "wavelength", attributes

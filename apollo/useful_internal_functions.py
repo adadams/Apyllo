@@ -4,7 +4,7 @@ from typing import Any, Callable
 
 import numpy as np
 import yaml
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from xarray import Dataset
 
 from apollo.convenience_types import Pathlike
@@ -36,7 +36,9 @@ def format_yaml_from_template(
 
 
 def interleave(
-    first_terms: ArrayLike, second_terms: ArrayLike, interleaved_axis: int = -1
+    first_terms: NDArray[np.float64],
+    second_terms: NDArray[np.float64],
+    interleaved_axis: int = -1,
 ):
     interleaved_dimension_size = (
         np.shape(first_terms)[interleaved_axis]

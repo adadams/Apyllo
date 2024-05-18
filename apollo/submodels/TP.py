@@ -6,7 +6,7 @@ from typing import Sequence
 
 import numpy as np
 from matplotlib import pyplot as plt
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -57,7 +57,7 @@ class ThermalProfile(FunctionLoader):
             + f" with arguments: {self._loaded_arguments}"
         )
 
-    def __call__(self, pressures: float | Sequence[float]) -> ArrayLike:
+    def __call__(self, pressures: float | Sequence[float]) -> NDArray[np.float64]:
         return self._loaded_function(pressures)
 
 

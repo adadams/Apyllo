@@ -1,7 +1,8 @@
 from pathlib import Path
 from typing import IO, Protocol
 
-from numpy.typing import ArrayLike
+import numpy as np
+from numpy.typing import NDArray
 
 type Pathlike = Path | str
 type Filelike = Pathlike | IO
@@ -10,8 +11,8 @@ type Filelike = Pathlike | IO
 class Measured(Protocol):
     """A thing that has errors."""
 
-    lower_errors: ArrayLike
-    upper_errors: ArrayLike
+    lower_errors: NDArray[np.float64]
+    upper_errors: NDArray[np.float64]
 
     @property
     def errors(self):

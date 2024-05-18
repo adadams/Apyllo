@@ -2,8 +2,9 @@ from operator import itemgetter
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+import numpy as np
 import tomllib
-from numpy.typing import ArrayLike
+from numpy.typing import NDArray
 from xarray import Dataset
 
 from apollo import TP_functions
@@ -146,7 +147,7 @@ def make_MLE_parameter_file_from_input_parameter_file(
 
 def make_dataset_from_APOLLO_parameter_file(
     results_parameter_filepath: Path,
-    parameter_values: ArrayLike,
+    parameter_values: NDArray[np.float64],
     log_likelihoods: Sequence[float],
     **parsing_kwargs,
 ) -> Dataset:
