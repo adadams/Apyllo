@@ -18,3 +18,8 @@ extensions_I_use.txt
 
 plot_stuff_JWST-only_2M2236_logg-free_against_HK+JWST_2M2236_logg-free_data.pickle
 plot_stuff_JWST-only_2M2236_logg-normal_against_HK+JWST_2M2236_logg-free_data.pickle
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/vcs.xml
+.idea/misc.xml
+.idea/APOLLO.iml
+.idea/modules.xml

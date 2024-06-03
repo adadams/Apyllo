@@ -1,4 +1,5 @@
 from dataclasses import InitVar, dataclass, field
+from enum import StrEnum, auto
 from functools import partial
 from typing import Callable, Sequence, TypedDict
 
@@ -14,6 +15,15 @@ REarth_in_cm = 6.371e8
 
 # RJup_in_REarth = (R_jup/R_earth).decompose().value
 RJup_in_REarth = 11.2
+
+parsec_in_Earth_radii = 4.838e9
+
+
+class RadiusInputs(StrEnum):
+    Rad = auto()
+    RtoD = auto()
+    RtoD2U = auto()
+    norad = auto()
 
 
 class CPlanetBlueprint(TypedDict):
@@ -224,9 +234,9 @@ class Planet:
             elif "RtoD" in basic:
                 pos = basic.index("RtoD")
                 params1[0] = (
-                    10 ** x[b1 + pos] * dist * 4.838e9
+                    10 ** x[b1 + pos] * dist * parsec_in_Earth_radii
                 )  # convert R/D to Earth radii
-                radius = 10 ** x[b1 + pos] * dist * 4.838e9 * REarth_in_cm
+                radius = 10 ** x[b1 + pos] * dist * parsec_in_Earth_radii * REarth_in_cm
             elif "RtoD2U" in basic:
                 pos = basic.index("RtoD2U")
                 params1[0] = np.sqrt(x[b1 + pos])

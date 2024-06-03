@@ -1,7 +1,5 @@
-import sys
-from os.path import abspath
 from pathlib import Path
-from typing import Any, Iterable, Sequence, TypedDict
+from typing import Any, Final, Iterable, Sequence, TypedDict
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -13,7 +11,9 @@ from numpy.typing import NDArray
 from pandas.compat import pickle_compat
 from yaml import safe_load
 
-from apollo.dataset.dataset_functions import change_units, load_dataset_with_units
+from apollo.convenience_types import Pathlike
+from apollo.dataset.dataset_accessors import change_units, load_dataset_with_units
+from apollo.generate_cornerplot import generate_cornerplot
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
 from apollo.retrieval.dynesty.apollo_interface_functions import (
     create_MLE_output_dictionary,
@@ -24,51 +24,49 @@ from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
     calculate_percentile,
 )
 from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
-from user.models.inputs.parse_APOLLO_inputs import write_parsed_input_to_output
-
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
-)
-sys.path.append(APOLLO_DIRECTORY)
-
-from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.generate_cornerplot import generate_cornerplot  # noqa: E402
-from apollo.visualization_functions import (  # noqa: E402
+from apollo.visualization_functions import (
     convert_to_greyscale,
     create_linear_colormap,
     create_monochromatic_linear_colormap,
 )
-from user.plots.plots_config import DEFAULT_PLOT_FILETYPES  # noqa: E402
+from user.forward_models.inputs.parse_APOLLO_inputs import write_parsed_input_to_output
+from user.plots.plots_config import DEFAULT_PLOT_FILETYPES
 
-CMAP_KWARGS = {
+CMAP_KWARGS: Final = {
     "lightness_minimum": 0.15,
     "lightness_maximum": 0.85,
     "saturation_minimum": 0.2,
     "saturation_maximum": 0.8,
 }
 
-APOLLO_USER_PLOTS_DIRECTORY = (
+APOLLO_USER_PLOTS_DIRECTORY: Final = (
     Path("~/Documents/Astronomy/2019/Retrieval/Code/APOLLO") / "user" / "plots"
 )
 plt.style.use(APOLLO_USER_PLOTS_DIRECTORY / "arthur.mplstyle")
 
-CMAP_H2O: Colormap = create_linear_colormap(["#226666", "#2E4172"], **CMAP_KWARGS)
-CMAP_CO: Colormap = create_linear_colormap(["#882D60", "#AA3939"], **CMAP_KWARGS)
-CMAP_CO2: Colormap = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
-CMAP_CH4: Colormap = create_linear_colormap(["#96A537", "#669933"], **CMAP_KWARGS)
+CMAP_H2O: Final[Colormap] = create_linear_colormap(
+    ["#226666", "#2E4172"], **CMAP_KWARGS
+)
+CMAP_CO: Final[Colormap] = create_linear_colormap(["#882D60", "#AA3939"], **CMAP_KWARGS)
+CMAP_CO2: Final[Colormap] = create_linear_colormap(
+    ["#96A537", "#669933"], **CMAP_KWARGS
+)
+CMAP_CH4: Final[Colormap] = create_linear_colormap(
+    ["#96A537", "#669933"], **CMAP_KWARGS
+)
 
-CMAP_CLOUDY: Colormap = create_linear_colormap(
+CMAP_CLOUDY: Final[Colormap] = create_linear_colormap(
     [cnames["lightcoral"], cnames["lightcoral"]], **CMAP_KWARGS
 )
-CMAP_CLEAR: Colormap = create_linear_colormap(
+CMAP_CLEAR: Final[Colormap] = create_linear_colormap(
     [cnames["cornflowerblue"], cnames["cornflowerblue"]], **CMAP_KWARGS
 )
 
-CMAP_CLOUD: Colormap = plt.get_cmap("Greys")
+CMAP_CLOUD: Final[Colormap] = plt.get_cmap("Greys")
 
-PLOTTED_COMPONENTS: list[str] = ["h2o", "co", "co2", "ch4"]
-PLOTTED_TITLES: list[str] = ["H$_2$O", "CO", "CO$_2$", "CH$_4$"]
-CMAPS: list[Colormap] = [CMAP_H2O, CMAP_CO, CMAP_CO2, CMAP_CH4]
+PLOTTED_COMPONENTS: Final[list[str]] = ["h2o", "co", "co2", "ch4"]
+PLOTTED_TITLES: Final[list[str]] = ["H$_2$O", "CO", "CO$_2$", "CH$_4$"]
+CMAPS: Final[list[Colormap]] = [CMAP_H2O, CMAP_CO, CMAP_CO2, CMAP_CH4]
 
 PADDING: float = 0.025
 
@@ -80,7 +78,7 @@ DEFAULT_SAVE_PLOT_KWARGS = dict(
 
 
 def setup_contribution_plots(
-    contributions: dict[str, NDArray[np.float64]], data_filepath: Pathlike
+    contributions: dict[str, NDArray[np.float_]], data_filepath: Pathlike
 ):
     FIDUCIAL_SPECIES = "h2o"
     MINIMUM_BAND_BREAK_IN_MICRONS = 0.05
@@ -173,7 +171,7 @@ def make_spectrum_and_residual_axes(
 
 
 class MultiFigureBlueprint(TypedDict):
-    contributions: dict[str, NDArray[np.float64]]
+    contributions: dict[str, NDArray[np.float_]]
     list_of_band_boundaries: Sequence[Sequence[float]]
     band_breaks: Sequence[Sequence[float]]
     contributions_max: float
@@ -258,15 +256,15 @@ def plot_alkali_lines_on_spectrum(spectrum_axis: plt.Axes) -> plt.Axes:
 
 
 def calculate_residuals(
-    datas: NDArray[np.float64],
-    models: NDArray[np.float64],
-    errors: NDArray[np.float64],
-) -> NDArray[np.float64]:
+    datas: NDArray[np.float_],
+    models: NDArray[np.float_],
+    errors: NDArray[np.float_],
+) -> NDArray[np.float_]:
     return (models - datas) / errors
 
 
 def calculate_chi_squared(
-    residuals: NDArray[np.float64], number_of_parameters: int
+    residuals: NDArray[np.float_], number_of_parameters: int
 ) -> float:
     reduced_chi_squared = np.sum(residuals**2) / (
         np.shape(residuals)[0] - number_of_parameters
@@ -277,8 +275,8 @@ def calculate_chi_squared(
 
 def generate_residual_plot_by_band(
     residual_axis: plt.axis,
-    wavelengths: NDArray[np.float64],
-    residuals: NDArray[np.float64],
+    wavelengths: NDArray[np.float_],
+    residuals: NDArray[np.float_],
     plot_color: str,
     plot_kwargs: dict[str, Any] = dict(
         linewidth=3, linestyle="solid", alpha=1, zorder=2
@@ -319,7 +317,7 @@ def make_contribution_figure_per_species() -> list[plt.Figure, plt.axis]:
 def plot_multi_figure_iteration(
     figure: plt.Figure,
     gridspec: GridSpec,
-    contributions: dict[str, NDArray[np.float64]],
+    contributions: dict[str, NDArray[np.float_]],
     list_of_band_boundaries: Sequence[Sequence[float]],
     band_breaks: Sequence[Sequence[float]],
     contributions_max: float,
@@ -881,8 +879,8 @@ def make_combined_TP_profile_plot(
 
 
 class CornerplotBlueprint(TypedDict):
-    samples: NDArray[np.float64]
-    weights: NDArray[np.float64]
+    samples: NDArray[np.float_]
+    weights: NDArray[np.float_]
     group_name: str
     parameter_names: Sequence[str]
     parameter_range: Sequence[Sequence[float]]

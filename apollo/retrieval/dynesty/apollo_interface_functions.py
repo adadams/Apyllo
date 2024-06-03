@@ -21,7 +21,7 @@ from apollo.retrieval.dynesty.convenience_functions import (
 from apollo.retrieval.dynesty.parse_dynesty_outputs import (
     load_and_filter_all_parameters_by_importance,
 )
-from user.models.inputs.parse_APOLLO_inputs import (
+from user.forward_models.inputs.parse_APOLLO_inputs import (
     change_properties_of_parameters,
     parse_APOLLO_input_file,
     write_parsed_input_to_output,
@@ -147,7 +147,7 @@ def make_MLE_parameter_file_from_input_parameter_file(
 
 def make_dataset_from_APOLLO_parameter_file(
     results_parameter_filepath: Path,
-    parameter_values: NDArray[np.float64],
+    parameter_values: NDArray[np.float_],
     log_likelihoods: Sequence[float],
     **parsing_kwargs,
 ) -> Dataset:

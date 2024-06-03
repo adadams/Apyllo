@@ -12,12 +12,12 @@ APOLLO_DIRECTORY = abspath(
 sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.data.read_data_into_xarray import (  # noqa: E402
-    read_APOLLO_data_into_dataset,  # noqa: E402
-)
-from apollo.dataset.dataset_functions import load_dataset_with_units  # noqa: E402
+from apollo.dataset.dataset_IO import load_dataset_with_units  # noqa: E402
 from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
     unpack_results_filepaths,  # noqa: E402
+)
+from apollo.spectrum.read_data_into_xarray import (  # noqa: E402
+    read_APOLLO_data_into_dataset,  # noqa: E402
 )
 from user.results.process_dynesty_results import RESULTS_DIRECTORY  # noqa: E402
 

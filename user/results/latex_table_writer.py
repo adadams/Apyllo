@@ -1,16 +1,10 @@
-import sys
-from os.path import abspath
 from typing import Callable
 
 from xarray import Dataset
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
-)
-sys.path.append(APOLLO_DIRECTORY)
-from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.dataset.dataset_functions import load_dataset_with_units  # noqa: E402
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import (  # noqa: E402
+from apollo.convenience_types import Pathlike
+from apollo.dataset.dataset_accessors import load_dataset_with_units
+from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
     calculate_MLE,
     calculate_percentile,
 )

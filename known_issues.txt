@@ -3,3 +3,9 @@
 
 (2) One has to change the compiler info when setting up on different machines/clusters (just be aware).
     Also, the compilers on the same cluster will change over time as they upgrade.
+
+(3) If you don't remove the name of the cloud species when using cloud model 4 (PLO), you will load cloud
+    files you don't need to and it might cause a memory overload.
+
+(4) Need an update readme and/or documentation for the "stable" version! --- Can we do this partly in tandem
+    with documentation for the development version?

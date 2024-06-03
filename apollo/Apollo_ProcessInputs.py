@@ -1,9 +1,11 @@
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from os.path import abspath
+from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -14,17 +16,114 @@ if APOLLO_DIRECTORY not in sys.path:
 import apollo.src.ApolloFunctions as af  # noqa: E402
 from apollo.Apollo_ReadInputsfromFile import DataParameters  # noqa: E402
 from apollo.convenience_types import Pathlike  # noqa: E402
+from user.TP_models import TP_models  # noqa: E402
+
+
+def set_default_output_filename(
+    short: bool, name: str, modestr: str, pllen: int, nsteps: int
+) -> str:
+    if short:
+        outfile = "/" + name + "."
+    else:
+        outfile = (
+            "/"
+            + name
+            + "."
+            + modestr
+            + "."
+            + str(pllen)
+            + "params"
+            + str(int(nsteps / 1000))
+            + "k."
+        )
+
+    return outfile
+
+
+def select_TP_model_function(gray: bool, atmtype: str) -> Callable:
+    if gray:
+        return TP_models["gray"]
+
+    elif atmtype in TP_models:
+        return TP_models[atmtype]
+
+    else:
+        return TP_models["verbatim"]
+
+
+def get_number_of_walkers(
+    sampler: str, ndim: int, nwalkers: int, override: bool
+) -> int:
+    if override:
+        return ndim * 2 + 2
+
+    elif sampler == "emcee":
+        if nwalkers == 0:
+            nwalkers = ndim * 8  # Default number of walkers
+        if nwalkers < 2 * ndim:
+            nwalkers = ndim * 2 + 2  # Minimum number of walkers
+        if nwalkers % 2 == 1:
+            nwalkers = nwalkers + 1  # Number of walkers must be even
+
+        return nwalkers
+
+    elif sampler == "dynesty":
+        return 1
+
+    else:
+        raise ValueError("Invalid sampler type.")
+
+
+override_parameters: dict[str, Any] = {
+    "parallel": False,
+    "printfull": True,
+    "nsteps": 2,
+    # "nwalkers": ndim * 2 + 2,
+}
+
+
+@dataclass
+class Size:
+    case_name: str
+    parameter_value: float
+
+
+@dataclass
+class RetrievalParameter:
+    value: float
+    guess: float
+    mu: float
+    sigma: float
+    bounds: tuple[float]
+
+
+def convert_area_ratio_to_radius(
+    area_ratio: float | ArrayLike[np.float_], dist: float
+) -> float:
+    return 10**area_ratio * dist**2 * 4.838e9**2
+
+
+def convert_area_parameter_to_radius_parameter(
+    area_parameter: RetrievalParameter, dist: float
+) -> RetrievalParameter:
+    radius = convert_area_ratio_to_radius(area_parameter.value, dist)
+    guess = convert_area_ratio_to_radius(area_parameter.guess, dist)
+    mu = convert_area_ratio_to_radius(area_parameter.mu, dist)
+    sigma = (guess * (10**area_parameter.sigma - 1)) * mu
+    bounds = convert_area_ratio_to_radius(area_parameter.bounds, dist)
+
+    return RetrievalParameter(radius, guess, mu, sigma, bounds)
 
 
 @dataclass
 class DataContainer:
     # NOTE: this is a clone of an existing container for APOLLO-style data.
-    wavelo: NDArray[np.float64]
-    wavehi: NDArray[np.float64]
-    wavemid: NDArray[np.float64]
-    flux: NDArray[np.float64]
-    errlo: NDArray[np.float64]
-    errhi: NDArray[np.float64]
+    wavelo: NDArray[np.float_]
+    wavehi: NDArray[np.float_]
+    wavemid: NDArray[np.float_]
+    flux: NDArray[np.float_]
+    errlo: NDArray[np.float_]
+    errhi: NDArray[np.float_]
 
 
 def read_in_observations(datain: Pathlike) -> DataContainer:
@@ -59,11 +158,11 @@ def read_in_observations(datain: Pathlike) -> DataContainer:
 
 @dataclass
 class BandParameters:
-    bandindex: NDArray[np.float64]
-    bandlo: NDArray[np.float64]
-    bandhi: NDArray[np.float64]
-    bandflux: NDArray[np.float64]
-    banderr: NDArray[np.float64]
+    bandindex: NDArray[np.float_]
+    bandlo: NDArray[np.float_]
+    bandhi: NDArray[np.float_]
+    bandflux: NDArray[np.float_]
+    banderr: NDArray[np.float_]
 
 
 def process_observations(
@@ -95,7 +194,7 @@ def process_observations(
 
 
 def calculate_wavelength_calibration_limits(
-    bounds: NDArray[np.float64], end: list[str], e1: int
+    bounds: NDArray[np.float_], end: list[str], e1: int
 ) -> list[float]:
     if "deltaL" in end:
         pos = end.index("deltaL")

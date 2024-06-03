@@ -1,5 +1,5 @@
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os.path import abspath
 from pathlib import Path
 from typing import IO, Any, Optional, TypedDict
@@ -15,6 +15,7 @@ if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.planet import RadiusInputs  # noqa: E402
 from apollo.useful_internal_functions import strtobool  # noqa: E402
 
 default_settings_filepath: Path = Path("apollo") / "default_input_settings.toml"
@@ -91,7 +92,7 @@ class PressureParameters:
     minP: float
     maxP: float
     vres: int
-    P_profile: Optional[NDArray[np.float64]]
+    P_profile: Optional[NDArray[np.float_]]
 
 
 @dataclass
@@ -324,7 +325,7 @@ def read_in_settings_from_input_file(
 
 @dataclass
 class ReadinParameters:
-    plparams: NDArray[np.float64]  # Parameter list, must be length pllen
+    plparams: NDArray[np.float_]  # Parameter list, must be length pllen
     ensparams: list[
         int
     ]  # List of indices of parameters that will be varied in ensemble mode
@@ -332,26 +333,36 @@ class ReadinParameters:
 
 @dataclass
 class ParameterDistributionParameters:
-    mu: NDArray[np.float64]  # Gaussian means, must be length pllen
-    sigma: NDArray[np.float64]  # Standard errors, must be length pllen
-    bounds: NDArray[np.float64]  # Bounds, must have dimensions (pllen, 2)
-    guess: NDArray[np.float64]  # Used for initial conditions, must be length pllen
+    mu: NDArray[np.float_]  # Gaussian means, must be length pllen
+    sigma: NDArray[np.float_]  # Standard errors, must be length pllen
+    bounds: NDArray[np.float_]  # Bounds, must have dimensions (pllen, 2)
+    guess: NDArray[np.float_]  # Used for initial conditions, must be length pllen
 
 
 @dataclass
 class FundamentalReadinParameters:
     b1: int  # Index of first fundamental ("basic") parameter in list of parameters
     bnum: int  # Number of fundamental parameters
+    b2: int = field(init=False)
     basic: list[str]  # List of fundamental parameter names
+    radius_case: RadiusInputs
     ilogg: Optional[int]  # Index of gravity parameter
-    norad: bool = False
+
+    def __post_init__(self):
+        self.b2 = self.b1 + self.bnum
 
 
 @dataclass
 class GasReadinParameters:
     g1: int  # Index of first gas parameter in list of parameters
     gnum: int  # Number of gas parameters
+    g2: int = field(init=False)
     gases: list[str]  # List of gas parameter names
+    ngas: int = field(init=False)
+
+    def __post_init__(self):
+        self.g2 = self.g1 + self.gnum
+        self.ngas = self.gnum + 1
 
 
 @dataclass
@@ -359,9 +370,17 @@ class TPReadinParameters:
     atmtype: str = "Layers"  # Default layered atmosphere, could be enum?
     a1: int  # Index of first T-P parameter in list of parameters
     anum: int  # Number of T-P parameters
+    a2: int = field(init=False)
     igamma: Optional[int]  # Index of gamma parameter
     smooth: Optional[bool]  # Whether to smooth, determined by presence of gamma
     verbatim: bool
+
+    def __post_init__(self):
+        self.a2 = self.a1 + self.anum
+
+        if self.smooth:
+            self.a2 = self.a2 - 1
+            self.anum = self.anum - 1
 
 
 @dataclass
@@ -371,7 +390,13 @@ class CloudReadinParameters:
     hazetype: int  # Index of hazestr in list of hazestr
     c1: int  # Index of first cloud parameter in list of parameters
     cnum: int  # Number of cloud parameters
+    c2: int = field(init=False)
     clouds: list[str]  # List of cloud parameter names
+    ilen: int = field(init=False)  # ilen probably shouldn't be here but...
+
+    def __post_init__(self):
+        self.c2 = self.c1 + self.cnum
+        self.ilen = 10 + self.cnum
 
 
 @dataclass

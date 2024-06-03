@@ -11,8 +11,8 @@ type Filelike = Pathlike | IO
 class Measured(Protocol):
     """A thing that has errors."""
 
-    lower_errors: NDArray[np.float64]
-    upper_errors: NDArray[np.float64]
+    lower_errors: NDArray[np.float_]
+    upper_errors: NDArray[np.float_]
 
     @property
     def errors(self):

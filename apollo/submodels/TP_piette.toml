@@ -1,0 +1,10 @@
+T_m4 =  { print_name = '$T_{-4}$', units = 'kelvin' }
+T_m3 =  { print_name = '$T_{-3}$', units = 'kelvin' }
+T_m2 =  { print_name = '$T_{-2}$', units = 'kelvin' }
+T_m1 =  { print_name = '$T_{-1}$', units = 'kelvin' }
+T_0 =   { print_name = '$T_{0}$', units = 'kelvin' }
+T_0p5 = { print_name = '$T_{0.5}$', units = 'kelvin' }
+T_1 =   { print_name = '$T_{1}$', units = 'kelvin' }
+T_1p5 = { print_name = '$T_{1.5}$', units = 'kelvin' }
+T_2 =   { print_name = '$T_{2}$', units = 'kelvin' }
+T_2p5 = { print_name = '$T_{2.5}$', units = 'kelvin' }

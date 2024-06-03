@@ -1,15 +1,23 @@
 from dataclasses import dataclass
 from os import PathLike
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Sequence
 from warnings import warn
 
 import numpy as np
+from numpy.typing import NDArray
 from xarray import DataArray, Dataset
 
+from apollo.convenience_types import Pathlike
 
-@dataclass
-class OpacityHeader:
+
+@dataclass(slots=True)
+class CrossSectionTableHeader:
+    """
+    Defines the header entries and properties that are needed for a collection
+    of cross-section tables. Attributes follow the APOLLO-style header.
+    """
+
     number_of_pressure_layers: int
     minimum_log_pressure: float
     maximum_log_pressure: float
@@ -21,32 +29,8 @@ class OpacityHeader:
     maximum_wavelength: float
     effective_resolution: float
 
-
-@dataclass(slots=True)
-class CrossSection(Protocol):
-    """
-    Defines the header entries and properties that are needed for a collection
-    of cross-section tables. Attributes follow the APOLLO-style header.
-    """
-
     @property
-    def pressures(self) -> None: ...
-
-    @property
-    def temperatures(self) -> None: ...
-
-    @property
-    def wavelengths(self) -> None: ...
-
-
-@dataclass
-class CrossSectionDirectory(CrossSection):
-    name: str
-    species: tuple[str]
-    filepaths: dict[str, PathLike | str]
-
-    @property
-    def pressures(self):
+    def pressures(self) -> NDArray[np.float_]:
         return np.linspace(
             self.minimum_log_pressure,
             self.maximum_log_pressure,
@@ -54,7 +38,7 @@ class CrossSectionDirectory(CrossSection):
         )
 
     @property
-    def temperatures(self):
+    def temperatures(self) -> NDArray[np.float_]:
         return np.logspace(
             self.minimum_log_temperature,
             self.maximum_log_temperature,
@@ -62,13 +46,30 @@ class CrossSectionDirectory(CrossSection):
         )
 
     @property
-    def wavelengths(self):
+    def wavelengths(self) -> NDArray[np.float_]:
         return self.minimum_wavelength * np.exp(
             np.arange(self.number_of_spectral_elements) / self.effective_resolution
         )
 
 
-def get_file_headers(filepaths):
+@dataclass
+class CrossSectionTable:
+    set_name: str
+    species: str
+    filepath: Pathlike
+    header: CrossSectionTableHeader
+
+
+@dataclass
+class CrossSectionSet:
+    name: str
+    tables: tuple[CrossSectionTable]
+
+    def get_species(self) -> tuple[str]:
+        return tuple(table.species for table in self.tables)
+
+
+def get_file_headers(filepaths: Sequence[Pathlike]) -> tuple[tuple[Any]]:
     file_headers = []
     for i, filepath in enumerate(filepaths):
         with open(filepath, "r") as file:
@@ -83,13 +84,13 @@ def get_file_headers(filepaths):
     return tuple(file_headers)
 
 
-def get_valid_files_and_header(filepaths, header_protocol=CrossSection):
-    file_headers = get_file_headers(filepaths)
+def get_valid_files_and_header(filepaths, header_protocol=CrossSectionTableHeader):
+    file_headers: tuple[tuple[float | int]] = get_file_headers(filepaths)
 
-    expected_number_of_header_entries = len(header_protocol.__slots__)
+    expected_number_of_header_entries: int = len(header_protocol.__slots__)
 
-    valid_filepaths = []
-    potentially_valid_headers = []
+    valid_filepaths: list = []
+    potentially_valid_headers: list = []
     for filepath, file_header in zip(filepaths, file_headers):
         if len(file_header) != expected_number_of_header_entries:
             warn(
@@ -101,7 +102,7 @@ def get_valid_files_and_header(filepaths, header_protocol=CrossSection):
         valid_filepaths.append(filepath)
         potentially_valid_headers.append(file_header)
 
-    file_headers_all_match = len(set(potentially_valid_headers)) == 1
+    file_headers_all_match: bool = len(set(potentially_valid_headers)) == 1
     if not file_headers_all_match:
         warn(
             "There is apparently more than one set of header info. "
@@ -116,7 +117,7 @@ def get_valid_files_and_header(filepaths, header_protocol=CrossSection):
 
 def create_crosssection_catalog(
     file_directory: PathLike | str, filename_match_string: str = r"*.*.dat"
-) -> dict[str, CrossSection]:
+) -> dict[str, CrossSectionTable]:
     crosssection_filepaths = [
         filepath
         for filepath in Path(file_directory).glob(filename_match_string)

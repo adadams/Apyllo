@@ -1,8 +1,4 @@
-import sys
-from os import PathLike
-from os.path import abspath
 from pathlib import Path
-from pprint import pprint
 from typing import Any, Sequence
 
 import numpy as np
@@ -10,30 +6,24 @@ import tomllib
 from numpy.typing import NDArray
 from xarray import Dataset
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+from apollo.convenience_types import Pathlike
+from apollo.dataset.dataset_builders import (
+    AttributeBlueprint,
+    make_dataset_variables_from_dict,
 )
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
-
-from apollo.dataset.dataset_functions import (  # noqa: E402
-    make_dataset_variables_from_dict,  # noqa: E402
-)
-from apollo.spectral import get_wavelengths_from_wavelength_bins  # noqa: E402
+from apollo.spectrum.spectral_classes import get_wavelengths_from_wavelength_bins
 
 with open("apollo/formats/APOLLO_data_file_format.toml", "rb") as data_format_file:
-    APOLLO_DATA_FORMAT = tomllib.load(data_format_file)
-
-pprint(APOLLO_DATA_FORMAT)
+    APOLLO_DATA_FORMAT: dict[str, dict[str, Any]] = tomllib.load(data_format_file)
 
 
 def read_data_array_into_dictionary(
-    data_array: NDArray[np.float64], attributes: dict[str, dict[str, Any]] = None
+    data_array: NDArray[np.float_], attributes: AttributeBlueprint = None
 ) -> dict[str, Any]:
     if attributes is None:
         attributes = {}
 
-    variable_dictionary: dict[str, NDArray[np.float64]] = {
+    variable_dictionary: dict[str, NDArray[np.float_]] = {
         variable_name: data_row
         for variable_name, data_row in zip(attributes.keys(), data_array)
     }
@@ -43,7 +33,7 @@ def read_data_array_into_dictionary(
 
 
 def read_APOLLO_data_into_dictionary(
-    filepath: PathLike, data_format: dict[str, dict[str, Any]]
+    filepath: Pathlike, data_format: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     data_as_numpy = np.loadtxt(filepath, dtype=np.float32).T
 
@@ -64,7 +54,7 @@ def make_wavelength_coordinate_dictionary_from_APOLLO_data_dictionary(
 
 
 def read_APOLLO_data_into_dataset(
-    filepath: PathLike,
+    filepath: Pathlike,
     data_file_format: dict[str, dict[str, Any]] = APOLLO_DATA_FORMAT,
     data_name: str = None,
     band_names: Sequence[str] = None,

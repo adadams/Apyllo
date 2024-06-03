@@ -8,12 +8,12 @@ from tqdm import tqdm
 from xarray import Dataset, apply_ufunc
 
 from apollo.convenience_types import Pathlike
-from apollo.dataset.dataset_functions import (
+from apollo.dataset.dataset_accessors import (
     extract_dataset_subset_by_parameter_group,
     extract_free_parameters_from_dataset,
-    make_dataset_variables_from_dict,
-    save_dataset_with_units,
 )
+from apollo.dataset.dataset_builders import make_dataset_variables_from_dict
+from apollo.dataset.dataset_IO import save_dataset_with_units
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
 from apollo.retrieval.dynesty.apollo_interface_functions import (
     make_dataset_from_APOLLO_parameter_file,
@@ -80,7 +80,7 @@ def evaluate_model_spectra_from_dataset(
         number_of_wavelength_bins = len(binned_wavelengths)
         number_of_model_runs = len(sequences_of_parameters[0])
         spectrum_array = np.empty(
-            (number_of_model_runs, number_of_wavelength_bins), dtype=np.float64
+            (number_of_model_runs, number_of_wavelength_bins), dtype=np.float_
         )
 
         for i, model_parameter_set in enumerate(
@@ -95,7 +95,7 @@ def evaluate_model_spectra_from_dataset(
                     observation=observation,
                     model_parameters=model_parameter_set_without_units,
                 ),
-                dtype=np.float64,
+                dtype=np.float_,
             )
             spectrum_array[i] = model_spectrum
 

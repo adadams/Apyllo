@@ -4,7 +4,7 @@ from numpy import percentile
 from pint import Unit
 from xarray import Dataset, apply_ufunc
 
-from apollo.dataset.dataset_functions import organize_parameter_data_in_xarray
+from apollo.dataset.dataset_builders import organize_parameter_data_in_xarray
 
 
 class RunDatasetBlueprint(TypedDict):

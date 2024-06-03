@@ -1,7 +1,11 @@
+from pathlib import Path
+from typing import Sequence
+
 import numpy as np
 from scipy.interpolate import PchipInterpolator as monotonic_interpolation
 from scipy.ndimage import gaussian_filter1d as gaussian_smoothing
-from typing import Sequence
+
+from apollo.submodels.function_model import make_model
 
 
 ########## ANJALI PIETTE et. al. Profile ##########
@@ -10,6 +14,7 @@ from typing import Sequence
 # Piette, Anjali A. A., and Nikku Madhusudhan. “Considerations for Atmospheric
 # Retrieval of High-Precision Brown Dwarf Spectra” 19, no. July (July 29, 2020):
 # 1–19. http://arxiv.org/abs/2007.15004.
+@make_model(path_to_metadata=Path.cwd() / "apollo/submodels/TP_piette.toml")
 def piette(
     T_m4: float,
     T_m3: float,

@@ -1,14 +1,16 @@
+from typing import Final
+
 import numpy as np
 from numpy.typing import NDArray
 from useful_internal_functions import interleave
 
-c = 2.99792458e10  # in CGS
-hc = 1.98644568e-16  # in CGS
-hc_over_k = 1.98644568 / 1.38064852
+c: Final[float] = 2.99792458e10  # in CGS
+hc: Final[float] = 1.98644568e-16  # in CGS
+hc_over_k: Final[float] = 1.98644568 / 1.38064852
 
-MAXIMUM_EXP_FLOAT = 35
+MAXIMUM_EXP_FLOAT: Final[float] = 35
 
-stream_cosine_angles = np.array(
+STREAM_COSINE_ANGLES = np.array(
     [
         0.0446339553,
         0.1443662570,
@@ -21,7 +23,7 @@ stream_cosine_angles = np.array(
     ]
 )
 
-stream_weights = np.array(
+STREAM_WEIGHTS: Final[NDArray[np.float_]] = np.array(
     [
         0.0032951914,
         0.0178429027,
@@ -39,13 +41,13 @@ stream_weights = np.array(
 ############################ Main callable function. ##########################
 ###############################################################################
 def RT_Toon1989(
-    wavelengths_in_cm: NDArray[np.float64],
-    temperatures_in_K: NDArray[np.float64],
-    optical_depth_per_layer: NDArray[np.float64],
-    single_scattering_albedo: NDArray[np.float64],
-    scattering_asymmetry: NDArray[np.float64],
-    stream_cosine_angles: NDArray[np.float64] = stream_cosine_angles,
-    stream_weights: NDArray[np.float64] = stream_weights,
+    wavelengths_in_cm: NDArray[np.float_],
+    temperatures_in_K: NDArray[np.float_],
+    optical_depth_per_layer: NDArray[np.float_],
+    single_scattering_albedo: NDArray[np.float_],
+    scattering_asymmetry: NDArray[np.float_],
+    stream_cosine_angles: NDArray[np.float_] = STREAM_COSINE_ANGLES,
+    stream_weights: NDArray[np.float_] = STREAM_WEIGHTS,
 ):
     thermal_intensity, delta_thermal_intensity = thermal_intensity_by_layer(
         temperatures_in_K, wavelengths_in_cm
@@ -85,7 +87,7 @@ def blackbody_intensity_by_wavelength(temperature_in_K, wavelength_in_cm):
 
 
 def thermal_intensity_by_layer(
-    temperatures_in_K: NDArray[np.float64], wavelengths_in_cm: NDArray[np.float64]
+    temperatures_in_K: NDArray[np.float_], wavelengths_in_cm: NDArray[np.float_]
 ):
     wavelength_grid, temperature_grid = np.meshgrid(
         wavelengths_in_cm, temperatures_in_K
@@ -107,11 +109,11 @@ def thermal_intensity_by_layer(
 
 
 def calculate_terms_for_DSolver(
-    optical_depth_per_layer: NDArray[np.float64],
-    single_scattering_albedo: NDArray[np.float64],
-    scattering_asymmetry: NDArray[np.float64],
-    thermal_intensity: NDArray[np.float64],
-    delta_thermal_intensity: NDArray[np.float64],
+    optical_depth_per_layer: NDArray[np.float_],
+    single_scattering_albedo: NDArray[np.float_],
+    scattering_asymmetry: NDArray[np.float_],
+    thermal_intensity: NDArray[np.float_],
+    delta_thermal_intensity: NDArray[np.float_],
     mu_1: float = 0.5,  # This is mu_1 in Toon et al. 1989
 ):
     number_of_wavelengths, number_of_layers = np.shape(optical_depth_per_layer)
@@ -236,9 +238,9 @@ def DTRIDGL_subroutine(afs, bfs, cfs, dfs):
     as_base = af_base / bf_base  # as[nl2-1] = af[nl2-1]/bf[nl2-1]
     ds_base = df_base / bf_base  # ds[nl2-1] = df[nl2-1]/bf[nl2-1]
 
-    as_terms = np.empty_like(afs, dtype=np.float64)
+    as_terms = np.empty_like(afs, dtype=np.float_)
     as_terms[-1] = as_base
-    ds_terms = np.empty_like(afs, dtype=np.float64)
+    ds_terms = np.empty_like(afs, dtype=np.float_)
     ds_terms[-1] = ds_base
 
     twice_number_of_layers = np.shape(afs)[-1]
@@ -263,14 +265,14 @@ def DTRIDGL_subroutine(afs, bfs, cfs, dfs):
 
 
 def calculate_flux(
-    optical_depth_per_layer: NDArray[np.float64],
-    single_scattering_albedo: NDArray[np.float64],
-    scattering_asymmetry: NDArray[np.float64],
-    thermal_intensity: NDArray[np.float64],
-    delta_thermal_intensity: NDArray[np.float64],
-    stream_cosine_angles: NDArray[np.float64],
-    stream_weights: NDArray[np.float64],
-    xki_terms: NDArray[np.float64],
+    optical_depth_per_layer: NDArray[np.float_],
+    single_scattering_albedo: NDArray[np.float_],
+    scattering_asymmetry: NDArray[np.float_],
+    thermal_intensity: NDArray[np.float_],
+    delta_thermal_intensity: NDArray[np.float_],
+    stream_cosine_angles: NDArray[np.float_],
+    stream_weights: NDArray[np.float_],
+    xki_terms: NDArray[np.float_],
     mu_1: float = 0.5,  # This is mu_1 in Toon et al. 1989
 ):
     tau = optical_depth_per_layer
@@ -322,7 +324,7 @@ def calculate_flux(
     fpt_base = (
         2 * np.pi * (bsurf + delta_thermal_intensity[:, -1] * stream_cosine_angles)
     )
-    fpt_terms = np.empty_like(delta_thermal_intensity, dtype=np.float64)
+    fpt_terms = np.empty_like(delta_thermal_intensity, dtype=np.float_)
     fpt_terms[-1] = fpt_base
 
     for layer in reversed(range(number_of_layers)):

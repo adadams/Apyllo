@@ -5,7 +5,6 @@ from typing import Any, Callable
 import numpy as np
 import yaml
 from numpy.typing import NDArray
-from xarray import Dataset
 
 from apollo.convenience_types import Pathlike
 
@@ -35,9 +34,19 @@ def format_yaml_from_template(
     return yaml.safe_load(formatted_template)
 
 
+def turn_dictionary_into_string(dictionary: dict[str, Any]) -> str:
+    return (
+        str(dictionary)
+        .replace("{", "")
+        .replace("}", "")
+        .replace(":", " =")
+        .replace("'", "")
+    )
+
+
 def interleave(
-    first_terms: NDArray[np.float64],
-    second_terms: NDArray[np.float64],
+    first_terms: NDArray[np.float_],
+    second_terms: NDArray[np.float_],
     interleaved_axis: int = -1,
 ):
     interleaved_dimension_size = (
