@@ -1,26 +1,42 @@
-from functools import partial
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from numpy.typing import ArrayLike, NDArray
+from scipy.interpolate import PchipInterpolator as monotonic_interpolation
+from scipy.ndimage import gaussian_filter1d as gaussian_smoothing
 
-from apollo.submodels.function_model import FunctionModel
-from apollo.TP_functions import piette
-
-list_of_pressures = [-4, -3, -2, -1, 0, 0.5, 1, 1.5, 2, 2.5]
+from apollo.submodels.function_model import make_model
 
 
-PietteProfile: FunctionModel = ThermalProfile(piette, *np.linspace(500, 2000, num=10))
-print(PietteProfile)
+########## ANJALI PIETTE et. al. Profile ##########
+# A specific interpolation with its own smoothing. Should be flexible for
+# most retrieval cases without thermal inversions. See for reference
+# Piette, Anjali A. A., and Nikku Madhusudhan. “Considerations for Atmospheric
+# Retrieval of High-Precision Brown Dwarf Spectra” 19, no. July (July 29, 2020):
+# 1–19. http://arxiv.org/abs/2007.15004.
+@make_model(
+    path_to_metadata=Path.cwd() / "apollo/submodels/TP_models/modified_piette.toml"
+)
+def modified_piette(
+    T_m4: float,
+    T_m3: float,
+    T_m2: float,
+    T_m1: float,
+    T_0: float,
+    T_0p5: float,
+    T_1: float,
+    T_1p5: float,
+    T_2: float,
+    T_2p5: float,
+    pressures: Sequence[float],  # log(P/bars)
+):
+    LOGP_NODES = np.array([-4, -3, -2, -1, 0, 0.5, 1, 1.5, 2, 2.5])
+    T_NODES = np.array([T_m4, T_m3, T_m2, T_m1, T_0, T_0p5, T_1, T_1p5, T_2, T_2p5])
 
-pressures: NDArray[np.float_] = np.linspace(-4, 2.5, num=71)
-TP_profile: NDArray[np.float_] = PietteProfile(pressures)
+    interpolated_function = monotonic_interpolation(LOGP_NODES, T_NODES)
 
-figure: Figure = plt.figure(figsize=(8, 6))
-axis: Axes = figure.add_axes([0.1, 0.1, 0.8, 0.8])
-axis.plot(TP_profile, pressures)
-axis.invert_yaxis()
-plt.show()
+    TP_profile = gaussian_smoothing(interpolated_function(pressures), sigma=0.3)
+    return TP_profile
+
+
+###############################################################################

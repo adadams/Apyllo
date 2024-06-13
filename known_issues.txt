@@ -9,3 +9,13 @@
 
 (4) Need an update readme and/or documentation for the "stable" version! --- Can we do this partly in tandem
     with documentation for the development version?
+
+(5) In the polynomial normalization routine, the line where the "fluxspecial" is defined to normalize the errors
+    needs some sort of explanation. It might also need checking. I have *some* idea of how it works but not completely.
+
+(6) The code to define wavei/wavef in calculate_wavelength_limits() looks backwards. Confirm this isn't a leftover of
+    the wavenumber days? (I mean, the code is working right now...)
+
+(7) In general, being able to turn things on or off (e.g. Rayleigh scattering).
+
+(8) Have some easily check-able opacity reference info at run-time.

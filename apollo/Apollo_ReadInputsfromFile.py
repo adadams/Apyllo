@@ -1,5 +1,6 @@
 import sys
 from dataclasses import dataclass, field
+from enum import Enum
 from os.path import abspath
 from pathlib import Path
 from typing import IO, Any, Optional, TypedDict
@@ -23,6 +24,7 @@ with open(default_settings_filepath, "rb") as defaults_file:
     default_settings: dict[str, Any] = tomllib.load(defaults_file)
 
 HAZELIST: list[str] = default_settings["hazelist"]
+HAZE_ENUM = Enum("HazeSpecies", default_settings["hazelist"], start=0)
 
 
 def get_number_of_parameters_from_input_file(input_file: Pathlike) -> int:
@@ -48,7 +50,6 @@ class DataParameters:
     datain: Pathlike
     dataconv: int | float
     databin: int | float
-    degrade: int | float
 
 
 @dataclass
@@ -76,6 +77,7 @@ class OpacityParameters:
     opacdir: Pathlike
     hires: str  # eventually maybe enum?
     lores: str  # eventually maybe enum?
+    degrade: int | float
 
 
 @dataclass
@@ -135,158 +137,159 @@ class SettingsBlueprint(TypedDict):
 def read_in_settings_from_input_file(
     input_file: Pathlike = "examples/example.resolved.dat", override=True
 ) -> SettingsBlueprint:
-    fparams = open(input_file, "r")
-
     # Read in settings
 
     nlines = 0
-    while True:
-        last_pos = fparams.tell()
-        line = fparams.readline().split()
-        if len(line) >= 6:  # ends the loop when the parameters start
-            if line[0] == "Parameter":
-                break
-            else:
-                fparams.seek(last_pos)
-                break
+    with open(input_file, "r") as fparams:
+        while True:
+            last_pos = fparams.tell()
+            line = fparams.readline().split()
+            if len(line) >= 6:  # ends the loop when the parameters start
+                if line[0] == "Parameter":
+                    break
+                else:
+                    fparams.seek(last_pos)
+                    break
 
-        nlines = nlines + 1
-        if nlines > 100:
-            break  # prevents getting stuck in an infinite loop
+            nlines = nlines + 1
+            if nlines > 100:
+                break  # prevents getting stuck in an infinite loop
 
-        elif line[0] == "Object":
-            if len(line) > 1:
-                name = line[1]
-        if line[0] == "Mode":
-            if len(line) > 1:
-                modestr = line[1]
-            if modestr == "Resolved":
-                mode = 0
-            if modestr == "Eclipse":
-                mode = 1
-            if modestr == "Transit":
-                mode = 2
-        elif line[0] == "Parallel":
-            if len(line) > 1:
-                parallel = strtobool(line[1])
-        elif line[0] == "Data":
-            if len(line) > 1:
-                datain = line[1]
-            if len(line) > 2:
-                if line[2] == "Polyfit":
-                    polyfit = True
-        elif line[0] == "Sampler":
-            if len(line) > 1:
-                sampler = line[1]
-        elif line[0] == "Samples":
-            if len(line) > 1:
-                samples_file = line[1]
-            if len(line) > 2:
-                num_samples = (int)(line[2])
-        elif line[0] == "Checkpoint":
-            if len(line) > 1:
-                checkpoint_file = line[1]
-        elif line[0] == "Convolve":
-            if len(line) > 1:
-                dataconv = (int)(line[1])
-        elif line[0] == "Binning":
-            if len(line) > 1:
-                databin = (int)(line[1])
-        elif line[0] == "Degrade":
-            if len(line) > 1:
-                degrade = (int)(
-                    line[1]
-                )  # Only works with low-res data; mainly used to speed up execution for testing
-        elif line[0] == "Prior":
-            if len(line) > 1:
-                prior_type = line[1]
-        elif line[0] == "N_Walkers":
-            if len(line) > 1:
-                nwalkers = (int)(line[1])
-            if override:
-                nwalkers = 2
-        elif line[0] == "N_Steps":
-            if len(line) > 1:
-                nsteps = (int)(line[1])
-        elif line[0] == "Star":
-            if len(line) > 1:
-                tstar = (float)(line[1])
-            if len(line) > 2:
-                rstar = (float)(line[2])
-            if len(line) > 3:
-                sma = (float)(line[3])
-        elif line[0] == "Star_Spec":
-            if len(line) > 1:
-                starspec = line[1]
-        elif line[0] == "Location":
-            if len(line) > 1:
-                dist = (float)(line[1])
-            if len(line) > 2:
-                RA = (float)(line[2])
-            if len(line) > 3:
-                dec = (float)(line[3])
-        elif line[0] == "Mass_Limits":
-            if len(line) > 1:
-                minmass = (float)(line[1])
-            if len(line) > 2:
-                maxmass = (float)(line[2])
-        elif line[0] == "Tables":
-            if len(line) > 1:
-                hires = line[1]
-            if len(line) > 2:
-                lores = line[2]
-        elif line[0] == "Pressure":
-            if len(line) > 1:
-                minP = (float)(line[1]) + 6.0  # Convert from bars to cgs
-            if len(line) > 2:
-                maxP = (float)(line[2]) + 6.0
-            if maxP <= minP:
-                maxP = minP + 0.01
-            else:
-                P_profile = None
-        elif line[0] == "Gray":
-            if len(line) > 1:
-                gray = strtobool(line[1])
-            if len(line) > 2:
-                tgray = line[2]
-        elif line[0] == "Vres":
-            if len(line) > 1:
-                vres = (int)(line[1])
-        elif line[0] == "Streams":
-            if len(line) > 1:
-                streams = (int)(line[1])
-        elif line[0] == "Output_Mode":
-            if len(line) > 1:
-                outmode = line[1]
-            if len(line) > 2:
-                exptime = (float)(line[2])
-        elif line[0] == "Output":
-            if len(line) > 1:
-                outdir = line[1]
-            if len(line) > 2:
-                if line[2] == "Short":
-                    short = True
-                if line[2] == "Full":
-                    printfull = True
-            else:
-                short = False
-                printfull = False
-            if len(line) > 3:
-                if line[3] == "Short":
-                    short = True
-                if line[3] == "Full":
-                    printfull = True
-        elif line[0] == "Opacities":
-            if len(line) > 1:
-                opacdir = line[1]
+            elif line[0] == "Object":
+                if len(line) > 1:
+                    name = line[1]
+            if line[0] == "Mode":
+                if len(line) > 1:
+                    modestr = line[1]
+                if modestr == "Resolved":
+                    mode = 0
+                if modestr == "Eclipse":
+                    mode = 1
+                if modestr == "Transit":
+                    mode = 2
+            elif line[0] == "Parallel":
+                if len(line) > 1:
+                    parallel = strtobool(line[1])
+            elif line[0] == "Data":
+                if len(line) > 1:
+                    datain = line[1]
+                if len(line) > 2:
+                    if line[2] == "Polyfit":
+                        polyfit = True
+            elif line[0] == "Sampler":
+                if len(line) > 1:
+                    sampler = line[1]
+            elif line[0] == "Samples":
+                if len(line) > 1:
+                    samples_file = line[1]
+                if len(line) > 2:
+                    num_samples = (int)(line[2])
+            elif line[0] == "Checkpoint":
+                if len(line) > 1:
+                    checkpoint_file = line[1]
+            elif line[0] == "Convolve":
+                if len(line) > 1:
+                    dataconv = (int)(line[1])
+            elif line[0] == "Binning":
+                if len(line) > 1:
+                    databin = (int)(line[1])
+            elif line[0] == "Degrade":
+                if len(line) > 1:
+                    degrade = (int)(
+                        line[1]
+                    )  # Only works with low-res data; mainly used to speed up execution for testing
+            elif line[0] == "Prior":
+                if len(line) > 1:
+                    prior_type = line[1]
+            elif line[0] == "N_Walkers":
+                if len(line) > 1:
+                    nwalkers = (int)(line[1])
+                if override:
+                    nwalkers = 2
+            elif line[0] == "N_Steps":
+                if len(line) > 1:
+                    nsteps = (int)(line[1])
+            elif line[0] == "Star":
+                if len(line) > 1:
+                    tstar = (float)(line[1])
+                if len(line) > 2:
+                    rstar = (float)(line[2])
+                if len(line) > 3:
+                    sma = (float)(line[3])
+            elif line[0] == "Star_Spec":
+                if len(line) > 1:
+                    starspec = line[1]
+            elif line[0] == "Location":
+                if len(line) > 1:
+                    dist = (float)(line[1])
+                if len(line) > 2:
+                    RA = (float)(line[2])
+                if len(line) > 3:
+                    dec = (float)(line[3])
+            elif line[0] == "Mass_Limits":
+                if len(line) > 1:
+                    minmass = (float)(line[1])
+                if len(line) > 2:
+                    maxmass = (float)(line[2])
+            elif line[0] == "Tables":
+                if len(line) > 1:
+                    hires = line[1]
+                if len(line) > 2:
+                    lores = line[2]
+            elif line[0] == "Pressure":
+                if len(line) > 1:
+                    minP = (float)(line[1]) + 6.0  # Convert from bars to cgs
+                if len(line) > 2:
+                    maxP = (float)(line[2]) + 6.0
+                if maxP <= minP:
+                    maxP = minP + 0.01
+                else:
+                    P_profile = None
+            elif line[0] == "Gray":
+                if len(line) > 1:
+                    gray = strtobool(line[1])
+                if len(line) > 2:
+                    tgray = line[2]
+            elif line[0] == "Vres":
+                if len(line) > 1:
+                    vres = (int)(line[1])
+            elif line[0] == "Streams":
+                if len(line) > 1:
+                    streams = (int)(line[1])
+            elif line[0] == "Output_Mode":
+                if len(line) > 1:
+                    outmode = line[1]
+                if len(line) > 2:
+                    exptime = (float)(line[2])
+            elif line[0] == "Output":
+                if len(line) > 1:
+                    outdir = line[1]
+                if len(line) > 2:
+                    if line[2] == "Short":
+                        short = True
+                    if line[2] == "Full":
+                        printfull = True
+                else:
+                    short = False
+                    printfull = False
+                if len(line) > 3:
+                    if line[3] == "Short":
+                        short = True
+                    if line[3] == "Full":
+                        printfull = True
+            elif line[0] == "Opacities":
+                if len(line) > 1:
+                    opacdir = line[1]
 
-    data_parameters: DataParameters = DataParameters(datain, dataconv, databin, degrade)
+    data_parameters: DataParameters = DataParameters(datain, dataconv, databin)
     location_parameters: LocationParameters = LocationParameters(dist, RA, dec)
     model_parameters: ModelParameters = ModelParameters(mode, streams)
     model_restriction_parameters: ModelRestrictionParameters = (
         ModelRestrictionParameters(polyfit, gray, tgray)
     )
-    opacity_parameters: OpacityParameters = OpacityParameters(opacdir, hires, lores)
+    opacity_parameters: OpacityParameters = OpacityParameters(
+        opacdir, hires, lores, degrade
+    )
     output_parameters: OutputParameters = OutputParameters(
         outmode, exptime, outdir, short, printfull
     )
@@ -418,17 +421,17 @@ class ReadinParametersBlueprint(TypedDict):
 
 def read_in_model_parameters(
     pllen: int,
-    fparams: IO,
+    input_file: Pathlike,
     minP: float,
     maxP: float,
     hazelist: list[str] = HAZELIST,
     norad=True,
 ) -> ReadinParametersBlueprint:
     # Read in model parameters
-
     print("Reading in parameters.")
 
-    lines = fparams.readlines()
+    with open(input_file, "r") as fparams:
+        lines = fparams.readlines()
 
     plparams = np.zeros(pllen)  # Parameter list
     mu = np.zeros(pllen)  # Gaussian means
@@ -583,3 +586,19 @@ def read_in_model_parameters(
         cloud_readin_parameters=cloud_readin_parameters,
         calibration_readin_parameters=calibration_readin_parameters,
     )
+
+
+def main(input_file: Pathlike) -> ReadinParametersBlueprint:
+    number_of_parameters: int = get_number_of_parameters_from_input_file(input_file)
+
+    settings: SettingsBlueprint = read_in_settings_from_input_file(input_file)
+
+    parameters: ReadinParametersBlueprint = read_in_model_parameters(
+        pllen=number_of_parameters, input_file=input_file, minP=-4, maxP=2.5
+    )
+
+    return {
+        "number_of_parameters": number_of_parameters,
+        "settings": settings,
+        "parameters": parameters,
+    }

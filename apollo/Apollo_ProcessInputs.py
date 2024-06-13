@@ -1,8 +1,8 @@
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from os.path import abspath
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -14,8 +14,17 @@ if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
 import apollo.src.ApolloFunctions as af  # noqa: E402
-from apollo.Apollo_ReadInputsfromFile import DataParameters  # noqa: E402
+from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
+    DataParameters,
+    ModelParameters,
+    OpacityParameters,
+)
 from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.planet import CPlanetBlueprint  # noqa: E402
+from apollo.spectrum.read_data_into_xarray import (  # noqa: E402
+    find_band_limits_from_wavelength_bins,  # noqa: E402
+)
+from apollo.src.wrapPlanet import PyPlanet  # noqa: E402
 from user.TP_models import TP_models  # noqa: E402
 
 
@@ -120,13 +129,17 @@ class DataContainer:
     # NOTE: this is a clone of an existing container for APOLLO-style data.
     wavelo: NDArray[np.float_]
     wavehi: NDArray[np.float_]
-    wavemid: NDArray[np.float_]
+    wavemid: Optional[NDArray[np.float_]]
     flux: NDArray[np.float_]
+
+
+@dataclass
+class DataContainerwithErrors(DataContainer):
     errlo: NDArray[np.float_]
     errhi: NDArray[np.float_]
 
 
-def read_in_observations(datain: Pathlike) -> DataContainer:
+def read_in_observations(datain: Pathlike) -> DataContainerwithErrors:
     # Read in observations
     # Note: header contains info about star needed for JWST pipeline
 
@@ -153,25 +166,34 @@ def read_in_observations(datain: Pathlike) -> DataContainer:
     wavehi = np.round(wavehi, 5)
     wavemid = (wavehi + wavelo) / 2.0
 
-    return DataContainer(wavelo, wavehi, wavemid, flux, errlo, errhi)
+    return DataContainerwithErrors(wavelo, wavehi, wavemid, flux, errlo, errhi)
 
 
 @dataclass
-class BandParameters:
-    bandindex: NDArray[np.float_]
-    bandlo: NDArray[np.float_]
-    bandhi: NDArray[np.float_]
-    bandflux: NDArray[np.float_]
-    banderr: NDArray[np.float_]
+class BandSpecs:
+    bandindex: list[tuple]
+    modindex: NDArray[np.int_]
+    modwave: NDArray[np.float_]
 
 
-def process_observations(
+def band_data(observations: DataContainer) -> dict[tuple, DataContainerwithErrors]:
+    # Separate out individual bands
+    band_indices, *banded_spectra = af.FindBands(
+        observations.wavelo, observations.wavehi, observations.flux, observations.errhi
+    )
+
+    banded_data: dict[tuple, DataContainerwithErrors] = {
+        band_index: DataContainerwithErrors(banded_spectrum)
+        for band_index, banded_spectrum in zip(band_indices, banded_spectra)
+    }
+    return banded_data
+
+
+def band_convolve_and_bin_observations(
     observations: DataContainer, data_parameters: DataParameters
 ) -> None:
     # Separate out individual bands
-    bandindex, bandlo, bandhi, bandflux, banderr = af.FindBands(
-        observations.wavelo, observations.wavehi, observations.flux, observations.errhi
-    )
+    bandlo, bandhi, bandflux, banderr = band_data(observations).values()
     # nband = len(bandhi)
 
     # Convolve the observations to account for effective resolving power or fit at lower resolving power
@@ -181,66 +203,95 @@ def process_observations(
     binlo, binhi, binflux, binerr = af.BinBands(
         bandlo, bandhi, convflux, converr, data_parameters.databin
     )
-    binlen = len(binflux)
+
     binmid = np.zeros(len(binlo))
     for i in range(0, len(binlo)):
         binmid[i] = (binlo[i] + binhi[i]) / 2.0
+
+    return DataContainerwithErrors(binlo, binhi, binmid, binflux, binerr, binerr)
+
+
+def calculate_total_flux_in_CGS(observations: DataContainer) -> float:
+    binlen = len(observations.flux)
+    binlo = observations.wavelo
+    binhi = observations.wavehi
+    binflux = observations.flux
 
     totalflux = 0
     for i in range(0, binlen):
         totalflux = totalflux + binflux[i] * (binhi[i] - binlo[i]) * 1.0e-4
 
-    return None
+    return totalflux
+
+
+def get_wavelengths_from_data(data_parameters: DataParameters) -> tuple[float]:
+    unbinned_data: DataContainerwithErrors = read_in_observations(
+        data_parameters.datain
+    )
+
+    binned_data: DataContainerwithErrors = band_convolve_and_bin_observations(
+        unbinned_data, data_parameters
+    )
+
+    return (binned_data.wavelo, binned_data.wavehi)
 
 
 def calculate_wavelength_calibration_limits(
-    bounds: NDArray[np.float_], end: list[str], e1: int
-) -> list[float]:
-    if "deltaL" in end:
-        pos = end.index("deltaL")
-        minDL = bounds[e1 + pos, 0] * 0.001
-        maxDL = bounds[e1 + pos, 1] * 0.001
-
-        return minDL, maxDL
-
+    deltaL_parameter: RetrievalParameter | None,
+) -> tuple[float]:
+    if deltaL_parameter is not None:
+        return deltaL_parameter.bounds * 0.001
     else:
-        return 0, 0
+        return (0, 0)
+
+
+def calculate_wavelength_limits(
+    wavelo: ArrayLike[float],
+    wavehi: ArrayLike[float],
+    deltaL_parameter: RetrievalParameter | None = None,
+) -> tuple[float]:
+    minDL, maxDL = calculate_wavelength_calibration_limits(deltaL_parameter)
+
+    # NOTE: this looks wrong, check?
+    wavei = np.max(wavelo) + minDL
+    wavef = np.min(wavehi) + maxDL
+    return (wavei, wavef)
 
 
 def select_default_opacity_tables(wavei: float, wavef: float) -> str:
+    # wavei, wavef assumed to be in microns.
     if wavei < 5.0 and wavef < 5.0:
         if wavei < 0.6:
             wavei = 0.6
-        hires = "nir"
+        return "nir"
     elif wavei < 5.0 and wavef > 5.0:
         if wavei < 0.6:
             wavei = 0.6
         if wavef > 30.0:
             wavef = 30.0
-        hires = "wide"
+        return "wide"
     elif wavei > 5.0 and wavef > 5.0:
         if wavef > 30.0:
             wavef = 30.0
-        hires = "mir"
+        return "mir"
     else:
         raise ValueError(
-            "None of the default opacity tables match the wavelengths of the data you provided."
+            "None of the default opacity tables completely cover the wavelengths of the data you provided."
         )
+    # NOTE: wavei and wavef are modified, presumably to "chop" the input spectrum to match the range of the
+    # default opacity tables, but they are local variables here. I need to fix this.
 
-    return hires  # also need to return wavei and wavef, but they're not used anywhere after this???
 
-
-def set_model_wavelength_range(
+def get_unbanded_wavelengths_from_opacity_tables(
     opacdir: str,
-    hires: str,
-    lores: str,
+    opacity_catalog_name: str,
     degrade: int | float,
-) -> None:
+    fiducial_species_name: str = "h2o",
+) -> NDArray[np.float_]:
     # Compute hires spectrum wavelengths
-    opacfile = opacdir + "/gases/h2o." + hires + ".dat"
-    fopac = open(opacfile, "r")
-    opacshape = fopac.readline().split()
-    fopac.close()
+    opacfile = f"{opacdir}/gases/{fiducial_species_name}.{opacity_catalog_name}.dat"
+    with open(opacfile, "r") as fopac:
+        opacshape = fopac.readline().split()
     nwave = (int)(opacshape[6])
     lmin = (float)(opacshape[7])
     resolv = (float)(opacshape[9])
@@ -251,95 +302,368 @@ def set_model_wavelength_range(
     opacwave = np.zeros(opaclen)
     for i in range(0, opaclen):
         opacwave[i] = lmin * np.exp(i * degrade / resolv)
-    """
-    if wavehi[0]>opacwave[0] or wavelo[-1]<opacwave[-1]:
-        trim = [i for i in range(0,len(wavehi)) if (wavehi[i]<opacwave[0] and wavelo[i]>opacwave[-1])]
-        wavehi = wavehi[trim]
-        wavelo = wavelo[trim]
-        flux = flux[trim]
-        errlo = errlo[trim]
-        errhi = errhi[trim]
-        obslength = len(trim)
-    """
-    # Compute lores spectrum wavelengths
-    opacfile = opacdir + "/gases/h2o." + lores + ".dat"
-    fopac = open(opacfile, "r")
-    opacshape = fopac.readline().split()
-    fopac.close()
-    nwavelo = (int)(opacshape[6])
-    lminlo = (float)(opacshape[7])
-    resolvlo = (float)(opacshape[9])
-
-    modwavelo = np.zeros(nwavelo)
-    for i in range(0, nwavelo):
-        modwavelo[i] = lminlo * np.exp(i / resolvlo)
-
-    # Set up wavelength ranges
-    """
-    imin = np.where(opacwave<np.max(wavehi))[0]-1
-    imax = np.where(opacwave<np.min(wavelo))[0]+2
-    elif istart[0]<0: istart[0]=0
-    if len(iend)==0: iend = [len(opacwave)-1]
-    elif iend[-1]>=len(opacwave): iend[-1] = len(opacwave)-1
-
-    # Truncated and band-limited spectrum that does not extend beyond the range of the observations
-    modwave = np.array(opacwave)[(int)(imin[0]):(int)(imax[0])]
-    lenmod = len(modwave)
-    """
-
-    return None
+    return opacwave
 
 
-def handle_bands(
-    band_parameters: BandParameters,
-    opacwave,
-    binflux,
-    binerr,
-    minDL,
-    maxDL,
-) -> None:
-    # Handle bands and optional polynomial fitting
-    bindex, modindex, modwave = af.SliceModel(
-        band_parameters.bandlo, band_parameters.bandhi, opacwave, minDL, maxDL
+def set_Teff_calculation_wavelengths_from_opacity_tables(
+    opacdir: str, fiducial_species_name: str = "h2o"
+) -> NDArray[np.float_]:
+    return get_unbanded_wavelengths_from_opacity_tables(
+        opacdir, "lores", 1.0, fiducial_species_name
     )
 
-    # print(f"modwave is {modwave}")
-    # if np.any(np.isnan(modwave)):
-    #    print("There are at least some nans in the modwave.")
 
-    polyindex = -1
-    for i in range(1, len(bindex)):
-        if bindex[i][0] < bindex[i - 1][0]:
-            polyindex = i
-    if polyindex == -1:
-        polyfit = False
+def pare_down_model_wavelengths(
+    band_limits: tuple[tuple[float]],
+    opacwave: NDArray[np.float_],
+    minDL: float,
+    maxDL: float,
+) -> NDArray[np.float_]:
+    j_starts, j_ends = af.SliceModel_bindex(band_limits, opacwave, minDL, maxDL)
 
-    if polyfit:
-        normlo = band_parameters.bandlo[0]
-        normhi = band_parameters.bandhi[0]
-        normflux = band_parameters.bandflux[0]
-        normerr = band_parameters.banderr[0]
-        for i in range(1, len(band_parameters.bandlo)):
-            normlo = np.r_[normlo, band_parameters.bandlo[i]]
-            normhi = np.r_[normhi, band_parameters.bandhi[i]]
-            normflux = np.r_[normflux, band_parameters.bandflux[i]]
-            normerr = np.r_[normerr, band_parameters.banderr[i]]
-        normmid = (normlo + normhi) / 2.0
+    return af.SliceModel_modwave(opacwave, j_starts, j_ends)
 
-        slennorm = []
-        elennorm = []
-        for i in range(polyindex, len(band_parameters.bandindex)):
-            slennorm.append(band_parameters.bandindex[i][0])
-            elennorm.append(band_parameters.bandindex[i][1])
 
-        masternorm = af.NormSpec(normmid, normflux, slennorm, elennorm)
-        fluxspecial = np.concatenate(
-            (normerr[0 : slennorm[0]], normflux[slennorm[0] :]), axis=0
+def set_model_wavelengths_from_opacity_tables_and_data(
+    data_parameters: DataParameters,
+    opacity_parameters: OpacityParameters,
+    minDL: float = 0.0,
+    maxDL: float = 0.0,
+) -> NDArray[np.float_]:
+    unbinned_data: DataContainerwithErrors = read_in_observations(
+        data_parameters.datain
+    )
+    data_band_limits: tuple[tuple[float]] = find_band_limits_from_wavelength_bins(
+        unbinned_data.wavelo, unbinned_data.wavehi
+    )
+
+    opacdir: str = opacity_parameters.opacdir
+    opacity_catalog_name: str = opacity_parameters.opacity_catalog_name
+    degrade: int | float = opacity_parameters.degrade
+    unbanded_opacity_wavelengths: NDArray[np.float_] = (
+        get_unbanded_wavelengths_from_opacity_tables(
+            opacdir=opacdir, opacity_catalog_name=opacity_catalog_name, degrade=degrade
         )
-        mastererr = af.NormSpec(normmid, fluxspecial, slennorm, elennorm)
+    )
+
+    banded_opacity_wavelengths: NDArray[np.float_] = pare_down_model_wavelengths(
+        band_limits=data_band_limits,
+        opacwave=unbanded_opacity_wavelengths,
+        minDL=minDL,
+        maxDL=maxDL,
+    )
+
+    return banded_opacity_wavelengths
+
+
+def get_index_for_polynomial_normalization(bandindex: list[tuple]) -> int | None:
+    polyindex = None
+
+    for i in range(1, len(bandindex)):
+        if bandindex[i][0] < bandindex[i - 1][0]:
+            polyindex = i
+
+    return polyindex
+
+
+def normalize_banded_data(
+    bands_of_data: list[DataContainerwithErrors], band_specs: BandSpecs
+) -> DataContainerwithErrors:
+    # Handle bands and optional polynomial fitting
+    polyindex = get_index_for_polynomial_normalization(band_specs.bandindex)
+    if polyindex is None:
+        raise ValueError("Could not calculate an index for polynomial fitting.")
+
+    normlo = bands_of_data[0].wavelo
+    normhi = bands_of_data[0].wavehi
+    normflux = bands_of_data[0].flux
+    normerr = bands_of_data[0].errhi
+    for i in range(1, len(bands_of_data)):
+        normlo = np.r_[normlo, bands_of_data[i].wavelo]
+        normhi = np.r_[normhi, bands_of_data[i].wavehi]
+        normflux = np.r_[normflux, bands_of_data[i].flux]
+        normerr = np.r_[normerr, bands_of_data[i].errhi]
+    normmid = (normlo + normhi) / 2.0
+
+    slennorm = []
+    elennorm = []
+    for i in range(polyindex, len(band_specs.bandindex)):
+        slennorm.append(band_specs.bandindex[i][0])
+        elennorm.append(band_specs.bandindex[i][1])
+
+    masternorm = af.NormSpec(normmid, normflux, slennorm, elennorm)
+    fluxspecial = np.concatenate(
+        (normerr[0 : slennorm[0]], normflux[slennorm[0] :]), axis=0
+    )  # NOTE: this line needs clarification and checking.
+    mastererr = af.NormSpec(normmid, fluxspecial, slennorm, elennorm)
+
+    return DataContainerwithErrors(
+        wavelo=normlo, wavehi=normhi, flux=masternorm, errlo=mastererr, errhi=mastererr
+    )
+
+
+@dataclass
+class ModelSpectrumBinIndices:
+    ibinlo: float
+    ibinhi: float
+    delibinlo: float
+    delibinhi: float
+
+
+def get_model_spectral_bin_indices(
+    modwave: NDArray[np.float_], binlo, binhi
+) -> ModelSpectrumBinIndices:
+    bins = af.GetBins(modwave, binlo, binhi)
+    ibinlo = bins[0]
+    ibinhi = bins[1]
+    # print(f"ibinlo: {ibinlo}, ibinhi: {ibinhi}")
+
+    # Needed to calculate the spectrum with the wavelength offset later.
+    delmodwave = modwave + 0.001
+    delbins = af.GetBins(delmodwave, binlo, binhi)
+    delibinlo = delbins[0] - ibinlo
+    delibinhi = delbins[1] - ibinhi
+
+    return ModelSpectrumBinIndices(ibinlo, ibinhi, delibinlo, delibinhi)
+
+
+@dataclass
+class MolecularParameters:
+    species: list[str]
+    mmw: NDArray[np.float_]
+    rxsec: NDArray[np.float_]
+    # mollist: NDArray[np.float_]
+
+
+def get_molecular_weights_and_scattering_opacities(
+    list_of_gases: list[str], gas_parameters: list[float]
+) -> MolecularParameters:
+    mmw, rxsec = af.GetScaOpac(list_of_gases, gas_parameters)
+
+    return MolecularParameters(mmw, rxsec)
+
+
+def get_indices_of_molecular_species(list_of_gases: list[str]) -> NDArray[np.int_]:
+    return af.GetMollist(list_of_gases)
+
+
+def make_pressure_grid(natm: int, minP: float, maxP: float) -> NDArray[np.float_]:
+    return maxP + (minP - maxP) * np.arange(natm) / (natm - 1)
+
+
+# if P_profile is not None:
+#    profin = P_profile
+# else:
+#    profin = maxP + (minP - maxP) * np.arange(natm) / (natm - 1)
+
+# if atmtype == "Parametric" and natm != 5:
+#    print("Error: wrong parameterization of T-P profile.")
+#    sys.exit()
+
+# Create Planet and read in opacity tables
+# planet = PlanetCCore()
+# print("Haze type:", hazestr)
+# print("Cloud model:", cloudmod)
+# mode = int(mode)
+# cloudmod = int(cloudmod)
+# hazetype = int(hazetype)
+
+
+def set_TP_model_index(atmtype: str) -> int:
+    if atmtype == "Layers" or atmtype in TP_models:
+        return 0
+
+    elif atmtype == "Parametric":
+        return 1
 
     else:
-        masternorm = binflux
-        mastererr = binerr
+        raise ValueError(f"Unrecognized atmosphere type: {atmtype}")
 
-    return masternorm, mastererr, ...
+
+def select_free_parameters(
+    retrieval_parameters: Sequence[RetrievalParameter],
+) -> list[RetrievalParameter]:
+    return [
+        retrieval_parameter
+        for retrieval_parameter in retrieval_parameters
+        if retrieval_parameter.sigma > 0
+    ]
+
+
+def set_up_ensemble_mode(plparams, ensparams, pnames, bounds, sigma, outfile) -> None:
+    esize = 1
+    enstable = []
+    n = 0
+    for i in ensparams:
+        epmin = bounds[i, 0]
+        epmax = bounds[i, 1]
+        estep = sigma[i]
+        enum = int((epmax - epmin) / estep) + 1
+        esize = esize * enum
+        enstable.append([])
+        for j in range(0, enum):
+            epoint = epmin + j * estep
+            enstable[n].append(epoint)
+        n = n + 1
+
+    if esize > 1000:
+        prompt = input(
+            "Warning: this ensemble is more than 1,000 entries and may take significant time. Continue? (y/n): "
+        )
+        while not (prompt == "y" or prompt == "Y"):
+            if prompt == "n" or prompt == "N":
+                sys.exit()
+            else:
+                prompt = input("Error. Please type 'y' or 'n': ")
+    elif esize > 10000:
+        print(
+            "Error: this ensemble is more than 10,000 entries and may require several hours and several GB of memory. Please use a smaller ensemble."
+        )
+        print(
+            "If you wish to continue with this ensemble, comment out this warning in the source code."
+        )
+        sys.exit()
+    print("Ensemble size: {0:d}".format(esize))
+
+    eplist = np.zeros((esize, len(plparams)))
+    for i in range(0, esize):
+        eplist[i] = plparams
+        eindices = []
+        n = i
+        for j in range(0, len(enstable)):
+            k = n % len(enstable[j])
+            n = int(n / len(enstable[j]))
+            eindices.append(k)
+
+        for j in range(0, len(eindices)):
+            eplist[i][ensparams[j]] = enstable[j][eindices[j]]
+
+    foutnamee = "modelspectra" + outfile + "ensemble.dat"
+    fout = open(foutnamee, "w")
+
+    for i in range(0, len(ensparams)):
+        fout.write("     {0:s}".format(pnames[ensparams[i]]))
+        for j in range(0, esize):
+            fout.write(" {0:f}".format(eplist[j][ensparams[i]]))
+        fout.write("\n")
+
+
+# NOTE: could set this up so instead of the data_parameters and such, one passes in
+# a partialed version of the set_model_wavelengths... function? We would need to figure
+# out what should be pre-partialed and what should be provided here.
+# Or you just have the arguments be as close to the cclass inputs as possible, which means
+# passing model_wavelengths as an argument and have that be separate.
+
+
+# So in this idea, the current function is just an "adapter" that doesn't create any new
+# structures, just convert them into the specific forms that the C++ side needs.
+def set_up_PyPlanet(
+    model_parameters: ModelParameters,
+    model_wavelengths: Sequence[float],
+    Teff_calculation_wavelengths: Sequence[float],
+    atmtype: str,
+    cloudmod: int,
+    hazetype: int,
+    list_of_gas_species: Sequence[str],
+    opacity_parameters: OpacityParameters,
+) -> PyPlanet:
+    observation_mode_index: int = model_parameters.mode
+
+    number_of_streams: int = model_parameters.streams
+
+    # model_wavelengths: NDArray[np.float_] = (
+    #    set_model_wavelengths_from_opacity_tables_and_data(
+    #        data_parameters, opacity_parameters, mindL=minDL, maxdL=maxDL
+    #    )
+    # )
+
+    # Teff_calculation_wavelengths = set_Teff_calculation_wavelengths_from_opacity_tables(
+    #    opacity_parameters.opacdir
+    # )
+
+    cloud_model_index: int = cloudmod
+
+    hazetype_index: int = hazetype
+
+    gas_species_indices: list[int] = af.GetMollist(list_of_gas_species)
+
+    TP_model_switch: int = set_TP_model_index(atmtype)
+
+    gas_opacity_directory: Pathlike = opacity_parameters.opacdir
+    opacity_catalog_name: str = opacity_parameters.hires
+    Teff_opacity_catalog_name: str = opacity_parameters.lores
+
+    return CPlanetBlueprint(
+        observation_mode_index=observation_mode_index,
+        cloud_model_index=cloud_model_index,
+        hazetype_index=hazetype_index,
+        number_of_streams=number_of_streams,
+        TP_model_switch=TP_model_switch,
+        model_wavelengths=model_wavelengths,
+        Teff_calculation_wavelengths=Teff_calculation_wavelengths,
+        gas_species_indices=gas_species_indices,
+        gas_opacity_directory=gas_opacity_directory,
+        opacity_catalog_name=opacity_catalog_name,
+        Teff_opacity_catalog_name=Teff_opacity_catalog_name,
+    )
+
+
+"""
+MakePlanet_kwargs = CPlanetBlueprint(
+    observation_mode_index=mode, # RIfF: ModelParameters.mode
+    cloud_model_index=cloudmod, # RIfF: CloudReadinParameters.cloudmod
+    hazetype_index=hazetype, # RIfF CloudReadinParameters.hazetype
+    number_of_streams=streams, # RIfF: ModelParameters.streams
+    TP_model_switch=atmmod, #PI: set_TP_model_index(atmtype), atmtype from RIfF: TPReadinParameters.atmtype
+    model_wavelengths=modwave, BandSpecs.modwave from PI: pare_down_model_wavelengths,
+        from PI: set_model_wavelengths_from_opacity_tables,
+        args from RifF: OpacityParameters
+    Teff_calculation_wavelengths=modwavelo, BandSpecs.modwave from PI: set_model_wavelengths_from_opacity_tables,
+        args from RifF: OpacityParameters
+    gas_species_indices=mollist, # PI: af.GetMollist(gases),
+        gases from RifF: GasReadinParameters.gases
+    gas_opacity_directory=opacdir, # RifF: OpacityParameters.opacdir
+    opacity_catalog_name=hires, # RIfF: OpacityParameters.hires
+    Teff_opacity_catalog_name=lores, # RIfF: OpacityParameters.lores
+)
+
+ModelParameters: mode, streams
+OpacityParameters: everything
+
+"""
+
+
+"""
+MakeModel_initialization_kwargs = MakeModelBlueprint(
+        model_wavelengths=modwave,
+        gas_species=gases,
+        minimum_model_pressure=minP,
+        maximum_model_pressure=maxP,
+        model_pressures=profin,
+        number_of_atmospheric_layers=vres,
+        stellar_effective_temperature=tstar,
+        stellar_radius=rstar,
+        semimajor_axis=sma,
+        distance_to_system=dist,
+        gas_start_index=g1,
+        gas_end_index=g2,
+        TP_model_type=atmtype,
+        TP_model_function=TP_model,
+        is_TP_profile_gray=gray,
+        isothermal_temperature=tgray,
+        is_TP_profile_verbatim=verbatim,
+        TP_start_index=a1,
+        TP_end_index=a2,
+        number_of_TP_arguments=natm,
+        number_of_params1_arguments=ilen,
+        basic_parameter_names=basic,
+        basic_start_index=b1,
+        cloud_model_index=cloudmod,
+        hazetype_index=hazetype,
+        cloud_parameter_names=clouds,
+        cloud_start_index=c1,
+        calibration_parameter_names=end,
+        calibration_start_index=e1,
+        APOLLO_use_mode=task,
+    )
+"""

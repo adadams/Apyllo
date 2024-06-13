@@ -157,6 +157,7 @@ class Planet:
             calibration_start_index: int,
             APOLLO_use_mode: str,
         ):
+            # calls Set_Params(), Get(Clear)_Spectrum(), and Get_Teff()
             ##########################################
             # Start by relabeling all the arguments. #
             ##########################################

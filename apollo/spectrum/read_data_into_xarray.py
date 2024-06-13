@@ -94,20 +94,40 @@ def read_APOLLO_data_into_dataset(
     return Dataset.from_dict(dataset_dictionary).pint.quantify()
 
 
-def find_band_slices_from_wavelength_bins(
+def find_band_bounding_indices(
     wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
-) -> list[slice]:
-    indices_where_bands_end = np.argwhere(
+) -> tuple[int]:
+    indices_where_bands_end: NDArray[np.int_] = np.argwhere(
         ~np.isin(wavelength_bin_ends, wavelength_bin_starts)
     ).squeeze()
 
-    indices_bounding_bands = (0, *(indices_where_bands_end + 1))
+    return (0, *(indices_where_bands_end + 1))
 
-    band_slices = [
+
+def find_band_limits_from_wavelength_bins(
+    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
+) -> tuple[tuple[float, float]]:
+    indices_bounding_bands: tuple[int] = find_band_bounding_indices(
+        wavelength_bin_starts, wavelength_bin_ends
+    )
+
+    return (
+        (wavelength_bin_starts[start], wavelength_bin_ends[end])
+        for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
+    )
+
+
+def find_band_slices_from_wavelength_bins(
+    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
+) -> tuple[slice]:
+    indices_bounding_bands: tuple[int] = find_band_bounding_indices(
+        wavelength_bin_starts, wavelength_bin_ends
+    )
+
+    return (
         slice(start, end)
         for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
-    ]
-    return band_slices
+    )
 
 
 def make_band_coordinate_dictionary_for_dataset(

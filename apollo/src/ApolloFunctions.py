@@ -1,4 +1,7 @@
+from collections.abc import Sequence
+
 import numpy as np
+from numpy.typing import NDArray
 from scipy.interpolate import interp1d
 
 
@@ -78,7 +81,80 @@ def BinBands(bandlo, bandhi, convflux, converr, databin):
     return binlo, binhi, binflux, binerr
 
 
-def SliceModel(bandlo, bandhi, opacwave, minDL, maxDL):
+def SliceModel_bindex(
+    band_limits: Sequence[tuple[float]],
+    opacwave: NDArray[np.float_],
+    minDL: float,
+    maxDL: float,
+) -> tuple[list[int]]:
+    bindex = []
+    for band_start, band_end in band_limits:
+        bstart = band_start + minDL
+        bend = band_end + maxDL
+        js = np.where(opacwave > bstart)[0][0] - 1
+        je = np.where(opacwave > bend)[0][0] + 1
+        # if i>0 and js < bindex[i-1][1]: js = bindex[i-1][1]
+        bindex.append([js, je])
+
+    heads = []
+    for i in range(0, len(bindex)):
+        heads.append(bindex[i][0])
+    hsort = np.argsort(heads)
+
+    j_starts = []
+    j_ends = []
+    for i in range(0, len(hsort)):
+        js = bindex[hsort[i]][0]
+        j_starts.append(js)
+
+        je = bindex[hsort[i]][1]
+        j_ends.append(je)
+
+    return (j_starts, j_ends)
+
+
+def SliceModel_modindex(j_starts: Sequence[int], j_ends: Sequence[int]):
+    modindex = [[0]]
+
+    for i, (js, je) in enumerate(zip(j_starts, j_ends)):
+        start_index = modindex[i][0] + je - js
+        modindex[i].append(start_index)
+        if i < len(j_starts) - 1:
+            js_next = j_starts[i + 1]
+            if js_next < je:
+                new_start_index = start_index - (je - js_next)
+                modindex.append([new_start_index])
+            else:
+                modindex.append([start_index])
+
+    return modindex
+
+
+def SliceModel_modwave(
+    opacwave, j_starts: Sequence[int], j_ends: Sequence[int]
+) -> NDArray[np.float_]:
+    slwave = []
+
+    for i, (js, je) in enumerate(zip(j_starts, j_ends)):
+        if i > 0:
+            je_prev = j_ends[i - 1]
+            if je_prev > js:
+                slwave = np.r_[slwave, opacwave[je_prev:je]]
+            else:
+                slwave = np.r_[slwave, opacwave[js:je]]
+        else:
+            slwave = np.r_[slwave, opacwave[js:je]]
+
+    return np.asarray(slwave)
+
+
+def SliceModel(
+    bandlo: Sequence[NDArray[np.float_]],
+    bandhi: Sequence[NDArray[np.float_]],
+    opacwave: NDArray[np.float_],
+    minDL: float,
+    maxDL: float,
+):
     bindex = []
     modindex = [[0]]
     for i in range(0, len(bandlo)):
@@ -86,7 +162,6 @@ def SliceModel(bandlo, bandhi, opacwave, minDL, maxDL):
         bend = bandhi[i][-1] + maxDL
         js = np.where(opacwave > bstart)[0][0] - 1
         je = np.where(opacwave > bend)[0][0] + 1
-        # if i>0 and js < bindex[i-1][1]: js = bindex[i-1][1]
         bindex.append([js, je])
 
     heads = []
@@ -130,7 +205,9 @@ def NormSpec(wave, flux, startsnorm, endsnorm):
         normwave[i] = (wave[stemp] + wave[etemp - 1]) / 2.0
         normpoints[i] = np.mean(flux[stemp:etemp])
 
-    fit = np.polyfit(normwave, normpoints, len(normwave))
+    fit = np.polyfit(
+        normwave, normpoints, len(normwave)
+    )  # NOTE: np.polyfit is deprecated in favor of np.polynomial
     poly = np.poly1d(fit)
 
     return flux / poly(wave)
@@ -383,6 +460,7 @@ def GetScaOpac(gases, abunds):
 
 
 def GetMollist(gases):
+    # NOTE: gaslist here and in Planet.cpp -> Planet::readopac() are hard-coded and must match.
     mollist = np.zeros(len(gases))
     gaslist = [
         "h2",
