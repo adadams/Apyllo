@@ -237,8 +237,8 @@ def prepare_TP_profile_dataset_from_results_dataset(
 def prepare_model_spectra_dataset_from_free_parameters_dataset(
     results_dataset: Dataset,
     MLE_parameters_filepath: Pathlike,
+    number_of_resampled_model_spectra: int,
     output_filepath_plus_prefix: Pathlike = None,
-    number_of_resampled_model_spectra: int = 100,
     output_file_suffix: str = None,
 ) -> Dataset:
     free_parameter_dataset = extract_free_parameters_from_dataset(results_dataset)

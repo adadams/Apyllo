@@ -17,7 +17,7 @@ from apollo.submodels.function_model import make_model
 @make_model(
     path_to_metadata=Path.cwd() / "apollo/submodels/TP_models/modified_piette.toml"
 )
-def modified_piette(
+def piette(
     T_m4: float,
     T_m3: float,
     T_m2: float,

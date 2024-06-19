@@ -1,4 +1,6 @@
+import sys
 from operator import itemgetter
+from os.path import abspath
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -7,21 +9,27 @@ import tomllib
 from numpy.typing import NDArray
 from xarray import Dataset
 
-from apollo import TP_functions
-from apollo.convenience_types import Pathlike
-from apollo.make_forward_model_from_file import prep_inputs_for_model
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
+APOLLO_DIRECTORY = abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+)
+if APOLLO_DIRECTORY not in sys.path:
+    sys.path.append(APOLLO_DIRECTORY)
+
+from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.make_forward_model_from_file import prep_inputs_for_model  # noqa: E402
+from apollo.retrieval.dynesty.build_and_manipulate_datasets import (  # noqa: E402
     calculate_MLE,
     change_parameter_values_using_MLE_dataset,
     make_run_parameter_dataset,
 )
-from apollo.retrieval.dynesty.convenience_functions import (
+from apollo.retrieval.dynesty.convenience_functions import (  # noqa: E402
     get_parameter_properties_from_defaults,
 )
-from apollo.retrieval.dynesty.parse_dynesty_outputs import (
+from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
     load_and_filter_all_parameters_by_importance,
 )
-from user.forward_models.inputs.parse_APOLLO_inputs import (
+from apollo.submodels import TP  # noqa: E402
+from user.forward_models.inputs.parse_APOLLO_inputs import (  # noqa: E402
     change_properties_of_parameters,
     parse_APOLLO_input_file,
     write_parsed_input_to_output,
@@ -104,6 +112,7 @@ def make_MLE_parameter_file_from_input_parameter_file(
     fitting_results_filepath: Pathlike,
     derived_fit_parameters_filepath: Pathlike,
     input_parameters_filepath: Pathlike,
+    data_filepath: Pathlike,
 ) -> None:
     results = load_and_filter_all_parameters_by_importance(
         fitting_results_filepath, derived_fit_parameters_filepath
@@ -119,13 +128,15 @@ def make_MLE_parameter_file_from_input_parameter_file(
     input_parameter_group_slices = parsed_input_file["parameter_group_slices"]
     input_file_headers = parsed_input_file["header"]
 
+    input_file_headers["Data"] = (str(data_filepath.relative_to(Path.cwd())),)
+
     parameter_properties = get_parameter_properties_from_defaults(
         input_parameter_names, input_parameter_group_slices
     )
 
     sample_dataset = make_run_parameter_dataset(
         **parameter_properties,
-        parameter_values=parameter_samples.T,
+        parameter_values=parameter_samples,
         log_likelihoods=log_likelihoods,
     )
     MLE_parameters = calculate_MLE(sample_dataset)
@@ -136,7 +147,9 @@ def make_MLE_parameter_file_from_input_parameter_file(
         MLE_parameters,
     )
 
-    output_MLE_filename = input_parameters_filepath.replace("input", "retrieved")
+    output_MLE_filename: Path = Path(
+        str(input_parameters_filepath).replace("input", "retrieved")
+    )
     with open(output_MLE_filename, "w", newline="") as output_file:
         write_parsed_input_to_output(
             input_file_headers, MLE_output_parameter_dict, output_file
@@ -180,4 +193,4 @@ def get_TP_function_from_APOLLO_parameter_file(
 
     TP_function_name = parsed_retrieved_file["parameters"]["Atm"]["options"][0]
 
-    return getattr(TP_functions, TP_function_name)
+    return getattr(TP, TP_function_name)

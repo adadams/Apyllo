@@ -116,9 +116,9 @@ class Planet:
     def __post_init__(self, cclass_constructor: CPlanetBlueprint):
         self.cclass = PyPlanet()
         cclass_args = [
-            list(cclass_constructor[:5]),
-            *list(cclass_constructor[5:8]),
-            *[arg.encode("utf-8") for arg in cclass_constructor[8:]],
+            list(cclass_constructor.values())[:5],
+            *list(cclass_constructor.values())[5:8],
+            *[arg.encode("utf-8") for arg in list(cclass_constructor.values())[8:]],
         ]
         self.cclass.MakePlanet(*cclass_args)
 

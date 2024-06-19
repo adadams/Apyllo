@@ -29,9 +29,9 @@ def prep_inputs_for_model(input_filepath: Pathlike):
         processed_inputs["ModelObservable_initialization_kwargs"]
     )
 
-    binned_wavelengths = processed_inputs[
-        "ModelObservable_initialization_kwargs"
-    ].data_wavelengths
+    binned_wavelengths = processed_inputs["ModelObservable_initialization_kwargs"][
+        "data_wavelengths"
+    ]
 
     return (
         dict(

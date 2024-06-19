@@ -70,7 +70,7 @@ class FunctionModel:
         return self.loaded_function(*args, **kwargs)
 
     def load_parameters(self, *args, **kwargs) -> Self:
-        return self.__class__(self.function, metadata=self.metadata, **kwargs)
+        return self.__class__(self.function, *args, metadata=self.metadata, **kwargs)
 
 
 def make_model(
@@ -99,3 +99,10 @@ def make_model(
             )
 
         return construct_FunctionModel
+
+
+# FUTURE: this might be a good construction for function *templates*, rather than
+# function *instances*. For example, a cloud model that implements different cloud
+# species, or a modified version of the Piette profile, or each gas species implementing
+# Rayleigh scattering and its own opacity table read. Is this just reimplementing something
+# obvious?

@@ -34,7 +34,7 @@ def read_data_array_into_dictionary(
 
 def read_APOLLO_data_into_dictionary(
     filepath: Pathlike, data_format: dict[str, dict[str, Any]]
-) -> dict[str, Any]:
+) -> dict[str, NDArray[np.float_]]:
     data_as_numpy = np.loadtxt(filepath, dtype=np.float32).T
 
     return read_data_array_into_dictionary(data_as_numpy, data_format)

@@ -1,18 +1,30 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Iterable, Sequence, TypedDict
+from typing import (
+    Any,
+    Final,
+    Iterable,
+    Optional,
+    Protocol,
+    Sequence,
+    TypedDict,
+)
 
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.colors import CSS4_COLORS as cnames
 from matplotlib.colors import Colormap
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Patch
+from matplotlib.typing import ColorType
 from numpy.typing import NDArray
 from pandas.compat import pickle_compat
 from yaml import safe_load
 
 from apollo.convenience_types import Pathlike
-from apollo.dataset.dataset_accessors import change_units, load_dataset_with_units
+from apollo.dataset.dataset_accessors import change_units
+from apollo.dataset.dataset_IO import load_dataset_with_units
 from apollo.generate_cornerplot import generate_cornerplot
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
 from apollo.retrieval.dynesty.apollo_interface_functions import (
@@ -158,12 +170,12 @@ def setup_multi_figure(
         width_ratios=wavelength_ranges,
     )
 
-    return dict(figure=figure, gridspec=gridspec)
+    return {"figure": figure, "gridspec": gridspec}
 
 
 def make_spectrum_and_residual_axes(
     figure: plt.Figure, gridspec: GridSpec, band_index: int
-) -> list[plt.axis]:
+) -> list[plt.Axes]:
     spectrum_ax = figure.add_subplot(gridspec[0, band_index])
     residual_ax = figure.add_subplot(gridspec[1, band_index], sharex=spectrum_ax)
 
@@ -274,7 +286,7 @@ def calculate_chi_squared(
 
 
 def generate_residual_plot_by_band(
-    residual_axis: plt.axis,
+    residual_axis: plt.Axes,
     wavelengths: NDArray[np.float_],
     residuals: NDArray[np.float_],
     plot_color: str,
@@ -310,8 +322,153 @@ def generate_residual_plot_by_band(
     return residual_axis
 
 
-def make_contribution_figure_per_species() -> list[plt.Figure, plt.axis]:
-    pass
+# You have structure by plot type (row), band (column), and then overplotting multiple
+# runs/cases.
+
+
+class DrawsOnAxis(Protocol):
+    def __call__(self, axis: plt.Axes, *args, **kwargs) -> plt.Axes: ...
+
+
+@dataclass
+class PlotArtists:
+    draw_spectrum: DrawsOnAxis
+    draw_residuals: DrawsOnAxis
+    draw_contributions: Sequence[DrawsOnAxis]
+
+
+@dataclass
+class SpectralPlotElements:
+    datas: Sequence[float]
+    models: Sequence[float]
+    errors: Sequence[float]
+
+
+def make_contribution_figure_per_species(
+    contribution_ax: plt.Axes,
+    contributions: dict[str, pd.DataFrame],
+    band_breaks: Sequence[Sequence[float]],
+    comp: str,
+    contributions_max: float,
+    outline_color: str,
+    cont_cmap: str,
+    i: int,
+    j: int,
+) -> list[plt.Figure, plt.Axes]:
+    cf = contributions[comp].to_numpy()
+    x, y = np.meshgrid(
+        contributions[comp].index,
+        contributions[comp].columns,
+    )
+    contribution_contour_resolution_reduction_factor = 8
+
+    contribution_ax.contourf(
+        x[
+            :,
+            band_breaks[i] : band_breaks[
+                i + 1
+            ] : contribution_contour_resolution_reduction_factor,
+        ],
+        y[
+            :,
+            band_breaks[i] : band_breaks[
+                i + 1
+            ] : contribution_contour_resolution_reduction_factor,
+        ],
+        np.log10(cf).T[
+            :,
+            band_breaks[i] : band_breaks[
+                i + 1
+            ] : contribution_contour_resolution_reduction_factor,
+        ],
+        cmap=cont_cmap,
+        levels=contributions_max - np.array([4, 2, 0]),
+        alpha=0.66,
+        zorder=0,
+    )
+    contribution_ax.contour(
+        x[
+            :,
+            band_breaks[i] : band_breaks[
+                i + 1
+            ] : contribution_contour_resolution_reduction_factor,
+        ],
+        y[
+            :,
+            band_breaks[i] : band_breaks[
+                i + 1
+            ] : contribution_contour_resolution_reduction_factor,
+        ],
+        np.log10(cf).T[
+            :,
+            band_breaks[i] : band_breaks[
+                i + 1
+            ] : contribution_contour_resolution_reduction_factor,
+        ],
+        colors=outline_color,
+        levels=contributions_max - np.array([2]),
+        # linewidths=3,
+        alpha=1,
+        zorder=1,
+    )
+    if j == 0:
+        contribution_ax.invert_yaxis()
+    if "cloud" in contributions:
+        cloud_cf = contributions["cloud"]
+        x, y = np.meshgrid(cloud_cf.index, cloud_cf.columns)
+        contribution_ax.contourf(
+            x[
+                :,
+                band_breaks[i] : band_breaks[
+                    i + 1
+                ] : contribution_contour_resolution_reduction_factor,
+            ],
+            y[
+                :,
+                band_breaks[i] : band_breaks[
+                    i + 1
+                ] : contribution_contour_resolution_reduction_factor,
+            ],
+            cloud_cf.to_numpy().T[
+                :,
+                band_breaks[i] : band_breaks[
+                    i + 1
+                ] : contribution_contour_resolution_reduction_factor,
+            ],
+            colors="k",
+            # cmap=cmap_cloud,
+            alpha=0.75,
+            # levels=np.logspace(-1, 2, num=20),
+            levels=[0.1, 0.75],
+            zorder=2,
+        )
+        if i == 0:
+            contribution_ax.contour(
+                x[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
+                y[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
+                cloud_cf.to_numpy().T[
+                    :,
+                    band_breaks[i] : band_breaks[
+                        i + 1
+                    ] : contribution_contour_resolution_reduction_factor,
+                ],
+                colors="#DDDDDD",
+                linestyles="solid",
+                # linewidth=3,
+                alpha=1,
+                levels=[0.1],
+                zorder=3,
+            )
 
 
 def plot_multi_figure_iteration(
@@ -329,9 +486,7 @@ def plot_multi_figure_iteration(
     number_of_parameters: int,
     plot_color: str,
     iteration_index: int = 0,
-    spectrum_axes=None,
-    residual_axes=None,
-    contribution_columns=None,
+    multi_figure_axes: Sequence[MultiFigureColumn] | None = None,
 ) -> list[plt.Figure, tuple[plt.Axes]]:
     j = iteration_index
 
@@ -597,10 +752,8 @@ def make_multi_plots(
     for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
         run_directories.items(), plotting_colors.items()
     ):
-        contribution_filepath = (
-            results_directory / run_name / run_filepath_dict["contributions"]
-        )
-        data_filepath: Path = results_directory / run_name / run_filepath_dict["data"]
+        contribution_filepath = run_filepath_dict["contributions"]
+        data_filepath: Path = run_filepath_dict["data"]
 
         with open(contribution_filepath, "rb") as pickle_file:
             contributions = pickle_compat.load(pickle_file)
@@ -621,9 +774,7 @@ def make_multi_plots(
             )
         )
 
-        MLE_spectrum_filepath = (
-            results_directory / run_name / run_filepath_dict["MLE_model_spectrum"]
-        )
+        MLE_spectrum_filepath = run_filepath_dict["MLE_model_spectrum"]
         _, _, model_spectrum, _, _, _ = np.loadtxt(MLE_spectrum_filepath).T
 
         multi_figure_kwargs = MultiFigureBlueprint(
@@ -696,7 +847,7 @@ class CloudLayerPlotBlueprint(TypedDict):
 
 def make_TP_profile_plot_by_run(
     figure: plt.Figure,
-    axis: plt.axis,
+    axis: plt.Axes,
     log_pressures: Sequence[float],
     TP_profile_percentiles: Sequence[Sequence[float]],
     MLE_TP_profile: Sequence[float],
@@ -706,7 +857,7 @@ def make_TP_profile_plot_by_run(
     object_label: str,
     legend_dict: dict[str, Any] = None,
     cloud_layer_kwargs: CloudLayerPlotBlueprint = None,
-) -> list[plt.Figure, plt.axis]:
+) -> list[plt.Figure, plt.Axes]:
     T_minus_Nsigma, T_median, T_plus_Nsigma = TP_profile_percentiles
     # axis.plot(T_median, log_pressures, color=color, linewidth=1.5)
     axis.fill_betweenx(
@@ -773,9 +924,7 @@ def make_combined_TP_profile_plot(
     for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
         run_directories.items(), plotting_colors.items()
     ):
-        TP_profile_dataset = load_dataset_with_units(
-            results_directory / run_name / run_filepath_dict["TP_dataset"]
-        )
+        TP_profile_dataset = load_dataset_with_units(run_filepath_dict["TP_dataset"])
 
         TP_1sigma_percentiles = calculate_percentile(
             TP_profile_dataset, percentiles=[16, 50, 84], axis=0
@@ -920,9 +1069,7 @@ def make_corner_plots(
     for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
         run_directories.items(), plotting_colors.items()
     ):
-        samples_dataset = load_dataset_with_units(
-            results_directory / run_name / run_filepath_dict["samples_dataset"]
-        )
+        samples_dataset = load_dataset_with_units(run_filepath_dict["samples_dataset"])
         samples_dataset.update(change_units(samples_dataset.Rad, "Jupiter_radii"))
 
         MLE_values = calculate_MLE(samples_dataset)
@@ -946,6 +1093,9 @@ def make_corner_plots(
                 for parameter_specs in parameters_specs.values()
             ]
 
+            print(
+                f"{run_name} - Plotting {group_name} corner plot, with parameter specs: {parameters_specs}."
+            )
             group_dataset = samples_dataset.get(parameter_names).pint.dequantify()
             group_array = np.asarray(group_dataset.to_array().T)
             group_MLE_values = np.asarray(
