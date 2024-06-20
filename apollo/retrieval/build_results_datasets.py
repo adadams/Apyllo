@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, TypedDict
 
 import numpy as np
 from pandas.compat import pickle_compat
@@ -8,21 +8,64 @@ from tqdm import tqdm
 from xarray import Dataset, apply_ufunc
 
 from apollo.convenience_types import Pathlike
-from apollo.dataset.dataset_accessors import (
+from apollo.dataset.accessors import (
     extract_dataset_subset_by_parameter_group,
     extract_free_parameters_from_dataset,
 )
-from apollo.dataset.dataset_builders import make_dataset_variables_from_dict
-from apollo.dataset.dataset_IO import save_dataset_with_units
+from apollo.dataset.builders import (
+    make_dataset_variables_from_dict,
+    organize_parameter_data_in_xarray,
+)
+from apollo.dataset.IO import save_dataset_with_units
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
-from apollo.retrieval.dynesty.apollo_interface_functions import (
+from apollo.retrieval.dynesty.dynesty_interface_with_apollo import (
     make_dataset_from_APOLLO_parameter_file,
     prep_inputs_and_get_binned_wavelengths,
 )
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import calculate_MLE
 from apollo.retrieval.dynesty.parse_dynesty_outputs import (
     load_and_filter_all_parameters_by_importance,
 )
+from apollo.retrieval.manipulate_results_datasets import calculate_MLE
+
+
+class RunDatasetBlueprint(TypedDict):
+    parameter_names: Sequence[str]
+    parameter_values: Sequence[float]
+    parameter_units: Sequence[Unit | str]
+    parameter_default_string_formattings: Sequence[str]
+    parameter_group_names: Sequence[str]
+    log_likelihoods: Sequence[float]
+
+
+def make_run_parameter_dataset(
+    parameter_names: Sequence[str],
+    parameter_values: Sequence[float],
+    parameter_units: Sequence[Unit | str],
+    parameter_default_string_formattings: Sequence[str],
+    parameter_group_names: Sequence[str],
+    log_likelihoods: Sequence[float],
+) -> Dataset:
+    return Dataset(
+        {
+            parameter_name: organize_parameter_data_in_xarray(
+                name=parameter_name,
+                print_name="",
+                value=parameter_value,
+                unit=parameter_unit,
+                coords={"log_likelihood": log_likelihoods},
+                string_formatter=string_formatter,
+                base_group=parameter_group_name,
+            )
+            for parameter_name, parameter_value, parameter_unit, string_formatter, parameter_group_name in zip(
+                parameter_names,
+                parameter_values,
+                parameter_units,
+                parameter_default_string_formattings,
+                parameter_group_names,
+            )
+        }
+    )
+
 
 ORIGINAL_LOG_PRESSURES: Sequence[float] = np.linspace(-4, 2.5, num=71)
 MIDLAYER_LOG_PRESSURES: Sequence[float] = (

@@ -23,19 +23,19 @@ from pandas.compat import pickle_compat
 from yaml import safe_load
 
 from apollo.convenience_types import Pathlike
-from apollo.dataset.dataset_accessors import change_units
-from apollo.dataset.dataset_IO import load_dataset_with_units
+from apollo.dataset.accessors import change_units
+from apollo.dataset.IO import load_dataset_with_units
 from apollo.generate_cornerplot import generate_cornerplot
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
-from apollo.retrieval.dynesty.apollo_interface_functions import (
+from apollo.retrieval.dynesty.dynesty_interface_with_apollo import (
     create_MLE_output_dictionary,
     prep_inputs_and_get_binned_wavelengths,
 )
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
+from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
+from apollo.retrieval.manipulate_results_datasets import (
     calculate_MLE,
     calculate_percentile,
 )
-from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
 from apollo.visualization_functions import (
     convert_to_greyscale,
     create_linear_colormap,
@@ -775,7 +775,7 @@ def make_multi_plots(
         )
 
         MLE_spectrum_filepath = run_filepath_dict["MLE_model_spectrum"]
-        _, _, model_spectrum, _, _, _ = np.loadtxt(MLE_spectrum_filepath).T
+        _, _, model_spectrum, *_ = np.loadtxt(MLE_spectrum_filepath).T
 
         multi_figure_kwargs = MultiFigureBlueprint(
             contributions=contributions,

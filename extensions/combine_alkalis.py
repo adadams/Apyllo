@@ -48,7 +48,7 @@ def combine_alkalis(
     return NaK_data
 
 
-def main(
+def load_and_combine_alkalis(
     Na_opacity_filepath: Pathlike,
     K_opacity_filepath: Pathlike,
     output_filename: Pathlike,
@@ -67,4 +67,6 @@ if __name__ == "__main__":
     K_OPACITY_FILEPATH = ""
     ALKALI_OUTPUT_FILEPATH = ""
 
-    main(NA_OPACITY_FILEPATH, K_OPACITY_FILEPATH, ALKALI_OUTPUT_FILEPATH)
+    load_and_combine_alkalis(
+        NA_OPACITY_FILEPATH, K_OPACITY_FILEPATH, ALKALI_OUTPUT_FILEPATH
+    )

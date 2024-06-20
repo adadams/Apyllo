@@ -1,12 +1,10 @@
 from abc import abstractmethod
-from dataclasses import dataclass
 from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
 
-@dataclass
 class Spectral(Protocol):
     """Has wavelengths, possibly in binned, possibly in unbinned input format.
     Also has a corresponding spectrum that can be convolved and down-sampled in

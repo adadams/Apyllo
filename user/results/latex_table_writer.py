@@ -3,8 +3,8 @@ from typing import Callable
 from xarray import Dataset
 
 from apollo.convenience_types import Pathlike
-from apollo.dataset.dataset_accessors import load_dataset_with_units
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import (
+from apollo.dataset.accessors import load_dataset_with_units
+from apollo.retrieval.manipulate_results_datasets import (
     calculate_MLE,
     calculate_percentile,
 )

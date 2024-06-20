@@ -6,11 +6,13 @@ from matplotlib import pyplot as plt
 from matplotlib.typing import ColorType
 from numpy.typing import NDArray
 
-from apollo.spectrum.read_data_into_xarray import (
+from apollo.spectrum.band_bin_and_convolve import (
     find_band_limits_from_wavelength_bins,
+    get_wavelengths_from_wavelength_bins,
+)
+from apollo.spectrum.read_spectral_data_into_xarray import (
     read_APOLLO_data_into_dictionary,
 )
-from apollo.spectrum.spectral_classes import get_wavelengths_from_wavelength_bins
 
 
 class ContourBlueprint(TypedDict):

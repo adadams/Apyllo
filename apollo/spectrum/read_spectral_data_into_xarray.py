@@ -7,11 +7,15 @@ from numpy.typing import NDArray
 from xarray import Dataset
 
 from apollo.convenience_types import Pathlike
-from apollo.dataset.dataset_builders import (
+from apollo.dataset.builders import (
     AttributeBlueprint,
     make_dataset_variables_from_dict,
 )
-from apollo.spectrum.spectral_classes import get_wavelengths_from_wavelength_bins
+from apollo.spectrum.band_bin_and_convolve import (
+    find_band_slices_from_wavelength_bins,
+    get_wavelengths_from_wavelength_bins,
+)
+from apollo.spectrum.Spectrum_measured_using_xarray import DataSpectrum
 
 with open("apollo/formats/APOLLO_data_file_format.toml", "rb") as data_format_file:
     APOLLO_DATA_FORMAT: dict[str, dict[str, Any]] = tomllib.load(data_format_file)
@@ -51,6 +55,28 @@ def make_wavelength_coordinate_dictionary_from_APOLLO_data_dictionary(
         ),
         "attrs": APOLLO_data_dictionary["wavelength_bin_starts"]["attrs"],
     }
+
+
+def make_band_coordinate_dictionary_for_dataset(
+    band_slices: Sequence[slice], band_names: Sequence[str]
+) -> dict[str, Any]:
+    assert len(band_slices) == len(band_names), (
+        f"Number of provided data band names ({len(band_names)}) "
+        f"does not match the number of slices found ({len(band_slices)})."
+    )
+
+    band_lengths: list[int] = [
+        band_slice.stop - band_slice.start for band_slice in band_slices
+    ]
+
+    band_array = np.concatenate(
+        [
+            [band_name] * band_length
+            for band_name, band_length in zip(band_names, band_lengths)
+        ]
+    )
+
+    return {"dims": "wavelength", "data": band_array}
 
 
 def read_APOLLO_data_into_dataset(
@@ -94,56 +120,14 @@ def read_APOLLO_data_into_dataset(
     return Dataset.from_dict(dataset_dictionary).pint.quantify()
 
 
-def find_band_bounding_indices(
-    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
-) -> tuple[int]:
-    indices_where_bands_end: NDArray[np.int_] = np.argwhere(
-        ~np.isin(wavelength_bin_ends, wavelength_bin_starts)
-    ).squeeze()
-
-    return (0, *(indices_where_bands_end + 1))
-
-
-def find_band_limits_from_wavelength_bins(
-    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
-) -> tuple[tuple[float, float]]:
-    indices_bounding_bands: tuple[int] = find_band_bounding_indices(
-        wavelength_bin_starts, wavelength_bin_ends
+def read_APOLLO_data_into_DataSpectrum(
+    filepath: Pathlike,
+    data_file_format: dict[str, dict[str, Any]] = APOLLO_DATA_FORMAT,
+    data_name: str = None,
+    band_names: Sequence[str] = None,
+) -> DataSpectrum:
+    data: Dataset = read_APOLLO_data_into_dataset(
+        filepath, data_file_format, data_name, band_names
     )
 
-    return (
-        (wavelength_bin_starts[start], wavelength_bin_ends[end])
-        for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
-    )
-
-
-def find_band_slices_from_wavelength_bins(
-    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
-) -> tuple[slice]:
-    indices_bounding_bands: tuple[int] = find_band_bounding_indices(
-        wavelength_bin_starts, wavelength_bin_ends
-    )
-
-    return (
-        slice(start, end)
-        for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
-    )
-
-
-def make_band_coordinate_dictionary_for_dataset(
-    band_slices: Sequence[slice], band_names: Sequence[str]
-) -> dict[str, Any]:
-    assert len(band_slices) == len(
-        band_names
-    ), "Number of provided data band names does not match the number of slices found."
-
-    band_lengths = [band_slice.stop - band_slice.start for band_slice in band_slices]
-
-    band_array = np.concatenate(
-        [
-            [band_name] * band_length
-            for band_name, band_length in zip(band_names, band_lengths)
-        ]
-    )
-
-    return {"dims": "wavelength", "data": band_array}
+    return DataSpectrum(data)

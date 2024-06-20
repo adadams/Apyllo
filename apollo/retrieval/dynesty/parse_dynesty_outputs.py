@@ -88,4 +88,4 @@ def load_and_filter_all_parameters_by_importance(
 
     log_likelihoods = dynesty_results.logl[is_important_enough]
 
-    return dict(samples=samples, log_likelihoods=log_likelihoods)
+    return {"samples": samples, "log_likelihoods": log_likelihoods}

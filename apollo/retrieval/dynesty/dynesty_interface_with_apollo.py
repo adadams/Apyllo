@@ -17,16 +17,15 @@ if APOLLO_DIRECTORY not in sys.path:
 
 from apollo.convenience_types import Pathlike  # noqa: E402
 from apollo.make_forward_model_from_file import prep_inputs_for_model  # noqa: E402
-from apollo.retrieval.dynesty.build_and_manipulate_datasets import (  # noqa: E402
-    calculate_MLE,
-    change_parameter_values_using_MLE_dataset,
+from apollo.retrieval.build_results_datasets import (  # noqa: E402
     make_run_parameter_dataset,
-)
-from apollo.retrieval.dynesty.convenience_functions import (  # noqa: E402
-    get_parameter_properties_from_defaults,
 )
 from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
     load_and_filter_all_parameters_by_importance,
+)
+from apollo.retrieval.manipulate_results_datasets import (  # noqa: E402
+    calculate_MLE,
+    change_parameter_values_using_MLE_dataset,
 )
 from apollo.submodels import TP  # noqa: E402
 from user.forward_models.inputs.parse_APOLLO_inputs import (  # noqa: E402
@@ -34,6 +33,88 @@ from user.forward_models.inputs.parse_APOLLO_inputs import (  # noqa: E402
     parse_APOLLO_input_file,
     write_parsed_input_to_output,
 )
+
+
+def guess_default_units_from_parameter_names(
+    parameter_names: Sequence[str],
+) -> list[str]:
+    guessed_units = []
+
+    for parameter_name in parameter_names:
+        if "rad" in parameter_name.lower():
+            guessed_unit = "Earth_radii"
+
+        elif "mass" in parameter_name.lower():
+            guessed_unit = "Jupiter_masses"
+
+        elif ("T_" in parameter_name) or (parameter_name == "Teff"):
+            guessed_unit = "kelvin"
+
+        elif parameter_name == "deltaL":
+            guessed_unit = "nanometers"
+
+        else:
+            guessed_unit = "dimensionless"
+
+        guessed_units.append(guessed_unit)
+
+    return guessed_units
+
+
+def guess_default_string_formats_from_parameter_names(
+    parameter_names: Sequence[str],
+) -> list[str]:
+    guessed_float_precisions = []
+
+    for parameter_name in parameter_names:
+        if "mass" in parameter_name.lower():
+            guessed_float_precision = ".0f"
+
+        elif ("T_" in parameter_name) or (parameter_name == "Teff"):
+            guessed_float_precision = ".0f"
+
+        else:
+            guessed_float_precision = ".2f"
+
+        guessed_float_precisions.append(guessed_float_precision)
+
+    return guessed_float_precisions
+
+
+def get_parameter_properties_from_defaults(
+    free_parameter_names: Sequence[str],
+    free_parameter_group_slices: Sequence[slice],
+    derived_parameter_names: Sequence[str] = [
+        "Mass",
+        "C/O",
+        "[Fe/H]",
+        "Teff",
+    ],
+) -> dict[str, Any]:
+    parameter_names = free_parameter_names + derived_parameter_names
+
+    parameter_units = guess_default_units_from_parameter_names(parameter_names)
+
+    free_parameter_group_names = np.empty_like(free_parameter_names)
+    for group_name, group_slice in free_parameter_group_slices.items():
+        free_parameter_group_names[group_slice] = group_name
+
+    derived_parameter_group_names = ["Derived"] * len(derived_parameter_names)
+
+    parameter_group_names = (
+        list(free_parameter_group_names) + derived_parameter_group_names
+    )
+
+    parameter_default_string_formattings = (
+        guess_default_string_formats_from_parameter_names(parameter_names)
+    )
+
+    return dict(
+        parameter_names=parameter_names,
+        parameter_units=parameter_units,
+        parameter_default_string_formattings=parameter_default_string_formattings,
+        parameter_group_names=parameter_group_names,
+    )
 
 
 def get_print_names_from_parameter_names(
@@ -51,17 +132,20 @@ def get_print_names_from_parameter_names(
 
 def prep_inputs_and_get_binned_wavelengths(
     parameter_filepath: Pathlike,
-) -> dict[str, Any]:
+) -> dict:
     prepped_inputs, binned_wavelengths = prep_inputs_for_model(parameter_filepath)
 
-    return dict(prepped_inputs=prepped_inputs, binned_wavelengths=binned_wavelengths)
+    return {
+        "prepped_inputs": prepped_inputs,
+        "binned_wavelengths": binned_wavelengths,
+    }
 
 
 def create_MLE_output_dictionary(
     fitting_results_filepath: Pathlike,
     derived_fit_parameters_filepath: Pathlike,
     input_parameters_filepath: Pathlike,
-) -> dict[str, Any]:
+) -> dict:
     results = load_and_filter_all_parameters_by_importance(
         fitting_results_filepath, derived_fit_parameters_filepath
     )

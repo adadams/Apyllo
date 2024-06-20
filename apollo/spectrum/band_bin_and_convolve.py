@@ -1,4 +1,59 @@
+from typing import Sequence
+
 import numpy as np
+from numpy.typing import NDArray
+
+
+def get_wavelengths_from_wavelength_bins(wavelength_bin_starts, wavelength_bin_ends):
+    return (wavelength_bin_starts + wavelength_bin_ends) / 2
+
+
+def get_wavelength_bins_from_wavelengths(wavelengths):
+    half_wavelength_differences = np.diff(wavelengths) / 2
+
+    wavelength_bin_starts = wavelengths - np.stack(
+        (half_wavelength_differences[0], half_wavelength_differences)
+    )
+    wavelength_bin_ends = wavelengths + np.stack(
+        (half_wavelength_differences, half_wavelength_differences[-1])
+    )
+    return wavelength_bin_starts, wavelength_bin_ends
+
+
+def find_band_bounding_indices(
+    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
+) -> tuple[int]:
+    indices_where_bands_end: NDArray[np.int_] = np.argwhere(
+        ~np.isin(wavelength_bin_ends, wavelength_bin_starts)
+    ).squeeze()
+
+    return (0, *(indices_where_bands_end + 1))
+
+
+def find_band_limits_from_wavelength_bins(
+    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
+) -> tuple[tuple[float, float]]:
+    indices_bounding_bands: tuple[int] = find_band_bounding_indices(
+        wavelength_bin_starts, wavelength_bin_ends
+    )
+
+    return (
+        (wavelength_bin_starts[start], wavelength_bin_ends[end])
+        for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
+    )
+
+
+def find_band_slices_from_wavelength_bins(
+    wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
+) -> tuple[slice]:
+    indices_bounding_bands: tuple[int] = find_band_bounding_indices(
+        wavelength_bin_starts, wavelength_bin_ends
+    )
+
+    return tuple(
+        slice(start, end)
+        for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
+    )
 
 
 def BinSpec(flux, err, wavelo, wavehi, binw):
@@ -18,11 +73,11 @@ def BinSpec(flux, err, wavelo, wavehi, binw):
         fbinlo[i] = np.modf(ibinlo[i])[0]
         fbinhi[i] = np.modf(ibinhi[i])[0]
         if fbinlo[i] == 0.0:
-            ibinlo[i] = ibinlo[i] + 0.000001
-            fbinlo[i] = 0.000001
+            ibinlo[i] = ibinlo[i] + 0.000_001
+            fbinlo[i] = 0.000_001
         if fbinhi[i] == 0.0:
-            ibinhi[i] = ibinhi[i] + 0.000001
-            fbinhi[i] = 0.000001
+            ibinhi[i] = ibinhi[i] + 0.000_001
+            fbinhi[i] = 0.000_001
 
     for i in range(0, len(ibinhi)):
         binflux[i] = np.sum(

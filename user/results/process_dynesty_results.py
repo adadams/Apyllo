@@ -12,7 +12,7 @@ from typing import Any  # noqa: E402
 from xarray import Dataset  # noqa: E402
 
 from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.retrieval.dynesty.apollo_interface_functions import (  # noqa: E402
+from apollo.retrieval.dynesty.dynesty_interface_with_apollo import (  # noqa: E402
     get_TP_function_from_APOLLO_parameter_file,
 )
 from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402

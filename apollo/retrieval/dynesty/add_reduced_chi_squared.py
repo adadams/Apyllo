@@ -12,11 +12,11 @@ APOLLO_DIRECTORY = abspath(
 sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.dataset.dataset_IO import load_dataset_with_units  # noqa: E402
+from apollo.dataset.IO import load_dataset_with_units  # noqa: E402
 from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
     unpack_results_filepaths,  # noqa: E402
 )
-from apollo.spectrum.read_data_into_xarray import (  # noqa: E402
+from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
     read_APOLLO_data_into_dataset,  # noqa: E402
 )
 from user.results.process_dynesty_results import RESULTS_DIRECTORY  # noqa: E402
@@ -83,7 +83,7 @@ def calculate_reduced_chi_square_for_runs(
 
         data: Dataset = read_APOLLO_data_into_dataset(data_filepath)
         error_terms: DataArray = data.lower_errors.pint.dequantify()
-        _, _, model_spectrum, _, _, _ = np.loadtxt(MLE_spectrum_filepath).T
+        _, _, model_spectrum, *_ = np.loadtxt(MLE_spectrum_filepath).T
 
         samples_dataset: Dataset = load_dataset_with_units(samples_dataset_filepath)
 

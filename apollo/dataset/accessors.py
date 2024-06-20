@@ -2,6 +2,9 @@ from typing import Any, Callable
 
 from xarray import DataArray, Dataset
 
+# NOTE: there is a separate file for functions that act on results datasets.
+# Should be called something like "manipulate_results_datasets.py".
+
 
 def change_units(dataarray: DataArray, new_units: str) -> Dataset:
     return {dataarray.name: dataarray.pint.to(new_units)}

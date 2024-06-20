@@ -1,8 +1,18 @@
+import sys
+from os.path import abspath
 from pathlib import Path
 from typing import Final
 
-from apollo.spectrum.read_data_into_xarray import read_APOLLO_data_into_dataset
-from apollo.spectrum.spectral_classes import DataSpectrum
+APOLLO_DIRECTORY = abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+)
+if APOLLO_DIRECTORY not in sys.path:
+    sys.path.append(APOLLO_DIRECTORY)
+
+from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
+    read_APOLLO_data_into_dataset,
+)
+from apollo.spectrum.Spectrum_measured_using_xarray import DataSpectrum  # noqa: E402
 
 # %%
 DATA_DIRECTORY: Final = Path.home() / "Documents/Astronomy/2019/Retrieval/Code/Data"
@@ -18,6 +28,9 @@ JHK_data = read_APOLLO_data_into_dataset(
 ).groupby("band")
 
 # %%
+JHK_data["J"]
+
+# %%
 _2M2236_DATA_DIRECTORY: Final = DATA_DIRECTORY / "2M2236"
 _2M2236_DATA_FILE: Final = _2M2236_DATA_DIRECTORY / "2M2236_HK.dat"
 
@@ -26,6 +39,10 @@ HK_BAND_NAMES: Final = ["H", "Ks"]
 HK_data = read_APOLLO_data_into_dataset(
     _2M2236_DATA_FILE, band_names=HK_BAND_NAMES
 ).groupby("band")
+
+# %%
+HK_data
+# %%
 
 H_data = HK_data["H"]
 K_data = HK_data["Ks"]
