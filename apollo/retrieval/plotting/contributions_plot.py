@@ -6,10 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib.typing import ColorType
 from numpy.typing import NDArray
 
-from apollo.spectrum.band_bin_and_convolve import (
-    find_band_limits_from_wavelength_bins,
-    get_wavelengths_from_wavelength_bins,
-)
+from apollo.spectrum.band_bin_and_convolve import find_band_slices_from_wavelength_bins
 from apollo.spectrum.read_spectral_data_into_xarray import (
     read_APOLLO_data_into_dictionary,
 )
@@ -31,7 +28,7 @@ class ContourAestheticsBlueprint(TypedDict):
 
 
 def calculate_maximum_contour_value(
-    contributions: dict[str, NDArray[np.float_]],
+    contributions: dict[str, pd.DataFrame],
 ) -> float:
     COMPOSITE_COMPONENTS: Final[list[str]] = ["gas", "cloud", "total"]
 
@@ -46,10 +43,7 @@ def calculate_maximum_contour_value(
     )
 
 
-# NOTE: Should I just call the function to get banded data and return that?
-def get_wavelengths_from_data(
-    data_filepath: str,
-) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+def get_band_slices_from_data(data_filepath: str) -> tuple[slice]:
     data: dict[str, NDArray[np.float_]] = read_APOLLO_data_into_dictionary(
         data_filepath
     )
@@ -57,36 +51,23 @@ def get_wavelengths_from_data(
     wavelength_bin_starts: NDArray[np.float_] = data["wavelength_bin_starts"]
     wavelength_bin_ends: NDArray[np.float_] = data["wavelength_bin_ends"]
 
-    band_limits: tuple[slice] = find_band_limits_from_wavelength_bins(
+    return find_band_slices_from_wavelength_bins(
         wavelength_bin_starts, wavelength_bin_ends
     )
-
-    wavelengths: NDArray[np.float_] = get_wavelengths_from_wavelength_bins(
-        wavelength_bin_starts, wavelength_bin_ends
-    )
-
-    band_breaks = np.r_[
-        0,
-        np.nonzero(
-            (
-                contributions[FIDUCIAL_SPECIES].index.to_numpy()[1:]
-                - contributions[FIDUCIAL_SPECIES].index.to_numpy()[:-1]
-            )
-            > MINIMUM_BAND_BREAK_IN_MICRONS
-        )[0]
-        + 1,
-        len(contributions[FIDUCIAL_SPECIES].index),
-    ]
 
 
 def make_contour_inputs_from_contributions(
     contribution: pd.DataFrame,
-    band_breaks: tuple[int],
+    band_slice: slice,
     contribution_contour_resolution_reduction_factor: int,
 ) -> tuple[ContourBlueprint]:
     slices: tuple[slice] = (
         slice(None),
-        slice(*band_breaks, contribution_contour_resolution_reduction_factor),
+        slice(
+            band_slice.start,
+            band_slice.stop,
+            contribution_contour_resolution_reduction_factor,
+        ),
     )
 
     contour_x, contour_y = np.meshgrid(contribution.index, contribution.columns)

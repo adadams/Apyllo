@@ -10,9 +10,7 @@ APOLLO_DIRECTORY = abspath(
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
-    unpack_results_filepaths,  # noqa: E402
-)
+from apollo.retrieval.results.IO import unpack_results_filepaths  # noqa: E402
 from user.results.latex_table_writer import (  # noqa: E402
     format_percentiles_and_MLEs_and_store_as_attributes,
     load_results_dataset_and_store_formatted_table_text,

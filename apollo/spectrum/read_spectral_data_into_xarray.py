@@ -9,6 +9,7 @@ from xarray import Dataset
 from apollo.convenience_types import Pathlike
 from apollo.dataset.builders import (
     AttributeBlueprint,
+    DatasetBlueprint,
     make_dataset_variables_from_dict,
 )
 from apollo.spectrum.band_bin_and_convolve import (
@@ -84,6 +85,7 @@ def read_APOLLO_data_into_dataset(
     data_file_format: dict[str, dict[str, Any]] = APOLLO_DATA_FORMAT,
     data_name: str = None,
     band_names: Sequence[str] = None,
+    output_file_name: Pathlike = None,
 ) -> Dataset:
     if data_name is None:
         data_name: str = Path(filepath).stem
@@ -110,14 +112,19 @@ def read_APOLLO_data_into_dataset(
         )
         coordinates["band"] = band_coordinate_dictionary
 
-    dataset_dictionary: dict[str, Any] = {
-        "attrs": {"title": data_name},
-        "coords": coordinates,
-        "dims": "wavelength",
+    dataset_dictionary: DatasetBlueprint = {
         "data_vars": data_dictionary,
+        "coords": coordinates,
+        "attrs": {"title": data_name},
+        # "dims": "wavelength",
     }
 
-    return Dataset.from_dict(dataset_dictionary).pint.quantify()
+    dataset: Dataset = Dataset.from_dict(dataset_dictionary).pint.quantify()
+
+    if output_file_name is not None:
+        dataset.to_netcdf(output_file_name)
+
+    return dataset
 
 
 def read_APOLLO_data_into_DataSpectrum(

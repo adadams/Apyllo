@@ -1,11 +1,14 @@
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Callable, Sequence, TypedDict
+from typing import Any, Callable, TypedDict
 
 import numpy as np
+from numpy.typing import NDArray
 from pandas.compat import pickle_compat
 from pint import Unit
-from tqdm import tqdm
-from xarray import Dataset, apply_ufunc
+
+# from tqdm import tqdm
+from xarray import DataArray, Dataset, apply_ufunc
 
 from apollo.convenience_types import Pathlike
 from apollo.dataset.accessors import (
@@ -13,19 +16,21 @@ from apollo.dataset.accessors import (
     extract_free_parameters_from_dataset,
 )
 from apollo.dataset.builders import (
+    VariableBlueprint,
     make_dataset_variables_from_dict,
     organize_parameter_data_in_xarray,
 )
 from apollo.dataset.IO import save_dataset_with_units
-from apollo.make_forward_model_from_file import evaluate_model_spectrum
-from apollo.retrieval.dynesty.dynesty_interface_with_apollo import (
-    make_dataset_from_APOLLO_parameter_file,
-    prep_inputs_and_get_binned_wavelengths,
+from apollo.make_forward_model_from_file import (
+    evaluate_model_spectrum,
+    prep_inputs_for_model,
 )
-from apollo.retrieval.dynesty.parse_dynesty_outputs import (
-    load_and_filter_all_parameters_by_importance,
+from apollo.retrieval.results.IO import (
+    SamplingResults,
+    get_parameter_properties_from_defaults,
 )
-from apollo.retrieval.manipulate_results_datasets import calculate_MLE
+from apollo.retrieval.results.manipulate_results_datasets import calculate_MLE
+from user.forward_models.inputs.parse_APOLLO_inputs import parse_APOLLO_input_file
 
 
 class RunDatasetBlueprint(TypedDict):
@@ -67,6 +72,31 @@ def make_run_parameter_dataset(
     )
 
 
+def make_run_dataset_from_APOLLO_parameter_file(
+    results_parameter_filepath: Path,
+    parameter_values: NDArray[np.float_],
+    log_likelihoods: Sequence[float],
+    **parsing_kwargs,
+) -> Dataset:
+    with open(results_parameter_filepath, newline="") as retrieved_file:
+        parsed_retrieved_file = parse_APOLLO_input_file(
+            retrieved_file, **parsing_kwargs
+        )
+
+    retrieved_parameter_names = parsed_retrieved_file["parameter_names"]
+    retrieved_parameter_group_slices = parsed_retrieved_file["parameter_group_slices"]
+
+    parameter_properties = get_parameter_properties_from_defaults(
+        retrieved_parameter_names, retrieved_parameter_group_slices
+    )
+
+    return make_run_parameter_dataset(
+        **parameter_properties,
+        parameter_values=parameter_values,
+        log_likelihoods=log_likelihoods,
+    )
+
+
 ORIGINAL_LOG_PRESSURES: Sequence[float] = np.linspace(-4, 2.5, num=71)
 MIDLAYER_LOG_PRESSURES: Sequence[float] = (
     ORIGINAL_LOG_PRESSURES[:-1] + ORIGINAL_LOG_PRESSURES[1:]
@@ -83,7 +113,7 @@ def evaluate_TP_functions_from_dataset(
     TP_variable_list = [TP_dataset.get(variable) for variable in TP_dataset]
     number_of_variables = len(TP_variable_list)
 
-    return (
+    TP_dataarray: DataArray = (
         apply_ufunc(
             TP_function,
             *TP_variable_list,
@@ -97,6 +127,7 @@ def evaluate_TP_functions_from_dataset(
         .rename("temperatures")
         .pint.quantify(output_temperature_unit)
     )
+    return TP_dataarray.to_dataset()
 
 
 def evaluate_model_spectra_from_dataset(
@@ -105,34 +136,35 @@ def evaluate_model_spectra_from_dataset(
     output_flux_unit: Unit | str = "ergs / second / cm**3",
     loop_dimension: str = "log_likelihood",
 ) -> Dataset:
-    free_variable_list = [
+    free_variable_list: list[str] = [
         free_parameter_dataset.get(variable) for variable in free_parameter_dataset
     ]
-    number_of_variables = len(free_variable_list)
+    number_of_variables: int = len(free_variable_list)
 
-    prepped_inputs_and_wavelengths = prep_inputs_and_get_binned_wavelengths(
-        parameter_filepath
-    )
-    model_function = prepped_inputs_and_wavelengths["prepped_inputs"]["model_function"]
+    prepped_inputs_and_wavelengths: dict = prep_inputs_for_model(parameter_filepath)
+    model_function: Callable = prepped_inputs_and_wavelengths["prepped_inputs"][
+        "model_function"
+    ]
     observation = prepped_inputs_and_wavelengths["prepped_inputs"]["observation"]
     binned_wavelengths = prepped_inputs_and_wavelengths["binned_wavelengths"]
 
     def evaluate_model_spectrum_vectorized(
         *sequences_of_parameters: Sequence[Sequence[float]],
     ):
-        number_of_wavelength_bins = len(binned_wavelengths)
-        number_of_model_runs = len(sequences_of_parameters[0])
-        spectrum_array = np.empty(
+        number_of_wavelength_bins: int = len(binned_wavelengths)
+        number_of_model_runs: int = len(sequences_of_parameters[0])
+        spectrum_array: NDArray[np.float_] = np.empty(
             (number_of_model_runs, number_of_wavelength_bins), dtype=np.float_
         )
 
-        for i, model_parameter_set in enumerate(
-            tqdm(zip(*sequences_of_parameters), total=number_of_model_runs)
-        ):
-            model_parameter_set_without_units = [
+        # for i, model_parameter_set in enumerate(
+        #    tqdm(zip(*sequences_of_parameters), total=number_of_model_runs)
+        # ):
+        for i, model_parameter_set in enumerate(zip(*sequences_of_parameters)):
+            model_parameter_set_without_units: list[float] = [
                 parameter.magnitude for parameter in model_parameter_set
             ]
-            model_spectrum = np.asarray(
+            model_spectrum: NDArray[np.float_] = np.asarray(
                 evaluate_model_spectrum(
                     model_function=model_function,
                     observation=observation,
@@ -159,20 +191,16 @@ def evaluate_model_spectra_from_dataset(
 
 
 def compile_results_into_dataset(
-    fitting_results_filepath: Pathlike,
-    derived_fit_parameters_filepath: Pathlike,
+    results: SamplingResults,
     MLE_parameters_filepath: Pathlike,
     output_filepath_plus_prefix: Pathlike = None,
     output_file_suffix: str = "samples.nc",
     **parsing_kwargs,
 ) -> Dataset:
-    results = load_and_filter_all_parameters_by_importance(
-        fitting_results_filepath, derived_fit_parameters_filepath
-    )
-    parameter_samples = results["samples"]
-    log_likelihoods = results["log_likelihoods"]
+    parameter_samples: NDArray[np.float_] = results.samples
+    log_likelihoods: NDArray[np.float_] = results.log_likelihoods
 
-    results_dataset = make_dataset_from_APOLLO_parameter_file(
+    results_dataset: Dataset = make_run_dataset_from_APOLLO_parameter_file(
         MLE_parameters_filepath,
         parameter_values=parameter_samples,
         log_likelihoods=log_likelihoods,
@@ -180,7 +208,7 @@ def compile_results_into_dataset(
     )
 
     if output_filepath_plus_prefix:
-        results_output_filepath = Path(
+        results_output_filepath: Path = Path(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
@@ -196,35 +224,39 @@ def compile_contributions_into_dataset(
     output_file_suffix: str = "contributions.nc",
     log_pressures: Sequence[float] = MIDLAYER_LOG_PRESSURES,
 ) -> Dataset:
-    wavelengths = prep_inputs_and_get_binned_wavelengths(MLE_parameters_filepath)[
+    wavelengths: NDArray[np.float_] = prep_inputs_for_model(MLE_parameters_filepath)[
         "binned_wavelengths"
     ]
 
     with open(original_contributions_filepath, "rb") as pickle_file:
-        contributions = pickle_compat.load(pickle_file)
+        contributions: dict[str, NDArray[np.float_]] = pickle_compat.load(pickle_file)
 
-    contributions_coordinates = dict(
-        wavelength=dict(
-            dims="wavelength", data=wavelengths, attrs=dict(units="microns")
-        ),
-        log_pressure=dict(
-            dims="log_pressure",
-            data=log_pressures,
-            attrs=dict(units="log_10(bars)"),
-        ),
-    )
+    contributions_coordinates: dict[str, VariableBlueprint] = {
+        "wavelength": {
+            "dims": "wavelength",
+            "data": wavelengths,
+            "attrs": {"units": "microns"},
+        },
+        "log_pressure": {
+            "dims": "log_pressure",
+            "data": log_pressures,
+            "attrs": {"units": "log_10(bars)"},
+        },
+    }
 
-    contributions_dataset = Dataset.from_dict(
-        dict(
-            coords=contributions_coordinates,
-            attrs=dict(title="contribution_functions"),
-            dims=(dimension_names := tuple(contributions_coordinates.keys())),
-            data_vars=make_dataset_variables_from_dict(contributions, dimension_names),
-        )
+    contributions_dataset: Dataset = Dataset.from_dict(
+        {
+            "coords": contributions_coordinates,
+            "attrs": {"title": "contribution_functions"},
+            "dims": (dimension_names := tuple(contributions_coordinates.keys())),
+            "data_vars": make_dataset_variables_from_dict(
+                contributions, dimension_names
+            ),
+        }
     ).transpose("log_pressure", "wavelength")
 
     if output_filepath_plus_prefix:
-        contributions_output_filepath = Path(
+        contributions_output_filepath: Path = Path(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
@@ -240,10 +272,10 @@ def prepare_MLE_dataset_from_results_dataset(
     output_filepath_plus_prefix: Pathlike = None,
     output_file_suffix: str = "MLE-parameters.nc",
 ) -> Dataset:
-    MLE_parameters_dataset = calculate_MLE(results_dataset)
+    MLE_parameters_dataset: Dataset = calculate_MLE(results_dataset)
 
     if output_filepath_plus_prefix:
-        MLE_output_filepath = Path(
+        MLE_output_filepath: Path = Path(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
@@ -259,16 +291,16 @@ def prepare_TP_profile_dataset_from_results_dataset(
     output_file_suffix: str = "TP-profiles.nc",
     log_pressures: Sequence[float] = MIDLAYER_LOG_PRESSURES,
 ) -> Dataset:
-    TP_dataset = extract_dataset_subset_by_parameter_group(
+    TP_dataset: Dataset = extract_dataset_subset_by_parameter_group(
         results_dataset, group_name="Atm"
     )
 
-    TP_profile_dataset = evaluate_TP_functions_from_dataset(
+    TP_profile_dataset: Dataset = evaluate_TP_functions_from_dataset(
         TP_dataset, TP_function, log_pressures
     )
 
     if output_filepath_plus_prefix:
-        TP_output_filepath = Path(
+        TP_output_filepath: Path = Path(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
@@ -284,18 +316,22 @@ def prepare_model_spectra_dataset_from_free_parameters_dataset(
     output_filepath_plus_prefix: Pathlike = None,
     output_file_suffix: str = None,
 ) -> Dataset:
-    free_parameter_dataset = extract_free_parameters_from_dataset(results_dataset)
+    free_parameter_dataset: Dataset = extract_free_parameters_from_dataset(
+        results_dataset
+    )
 
-    model_spectrum_dataset = evaluate_model_spectra_from_dataset(
+    model_spectrum_dataset: Dataset = evaluate_model_spectra_from_dataset(
         free_parameter_dataset.tail(log_likelihood=number_of_resampled_model_spectra),
         MLE_parameters_filepath,
     )
 
     if output_filepath_plus_prefix:
         if output_file_suffix is None:
-            output_file_suffix = f".last-{number_of_resampled_model_spectra}-spectra.nc"
+            output_file_suffix: str = (
+                f".last-{number_of_resampled_model_spectra}-spectra.nc"
+            )
 
-        model_spectra_filename = Path(
+        model_spectra_filename: Path = Path(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 

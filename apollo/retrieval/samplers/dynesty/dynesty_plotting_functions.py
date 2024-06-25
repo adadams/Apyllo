@@ -27,14 +27,28 @@ from apollo.dataset.accessors import change_units
 from apollo.dataset.IO import load_dataset_with_units
 from apollo.generate_cornerplot import generate_cornerplot
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
-from apollo.retrieval.dynesty.dynesty_interface_with_apollo import (
-    create_MLE_output_dictionary,
-    prep_inputs_and_get_binned_wavelengths,
+from apollo.retrieval.plotting.contributions_plot import (
+    draw_cloud_contribution,
+    draw_gas_contribution,
 )
-from apollo.retrieval.dynesty.parse_dynesty_outputs import unpack_results_filepaths
-from apollo.retrieval.manipulate_results_datasets import (
+from apollo.retrieval.plotting.residuals_plot import (
+    calculate_residuals,
+    generate_residual_plot_by_band,
+)
+from apollo.retrieval.plotting.spectral_plot import (
+    generate_spectrum_plot_by_band,
+    plot_alkali_lines_on_spectrum,
+)
+from apollo.retrieval.results.manipulate_results_datasets import (
     calculate_MLE,
     calculate_percentile,
+)
+from apollo.retrieval.samplers.dynesty.dynesty_interface_with_apollo import (
+    create_MLE_output_dictionary,
+    prep_inputs_for_model,
+)
+from apollo.retrieval.samplers.dynesty.parse_dynesty_outputs import (
+    unpack_results_filepaths,
 )
 from apollo.visualization_functions import (
     convert_to_greyscale,
@@ -151,28 +165,6 @@ def setup_contribution_plots(
     )
 
 
-class MultiFigure(TypedDict):
-    figure: plt.Figure
-    gridspec: GridSpec
-
-
-def setup_multi_figure(
-    number_of_contributions: int,
-    number_of_bands: int,
-    wavelength_ranges: Sequence[float],
-) -> MultiFigure:
-    figure = plt.Figure(figsize=(40, 30))
-
-    gridspec = figure.add_gridspec(
-        nrows=number_of_contributions + 2,
-        ncols=number_of_bands,
-        height_ratios=[4, 2] + ([3] * number_of_contributions),
-        width_ratios=wavelength_ranges,
-    )
-
-    return {"figure": figure, "gridspec": gridspec}
-
-
 def make_spectrum_and_residual_axes(
     figure: plt.Figure, gridspec: GridSpec, band_index: int
 ) -> list[plt.Axes]:
@@ -180,99 +172,6 @@ def make_spectrum_and_residual_axes(
     residual_ax = figure.add_subplot(gridspec[1, band_index], sharex=spectrum_ax)
 
     return spectrum_ax, residual_ax
-
-
-class MultiFigureBlueprint(TypedDict):
-    contributions: dict[str, NDArray[np.float_]]
-    list_of_band_boundaries: Sequence[Sequence[float]]
-    band_breaks: Sequence[Sequence[float]]
-    contributions_max: float
-    wavelengths: Sequence[float]
-    datas: Sequence[float]
-    models: Sequence[float]
-    errors: Sequence[float]
-    model_title: str
-    number_of_parameters: int
-
-
-def generate_spectrum_plot_by_band(
-    spectrum_axis: Iterable[plt.Axes],
-    wavelengths: Sequence[float],
-    data: Sequence[float],
-    model: Sequence[float],
-    error: Sequence[float],
-    model_title: str,
-    plot_color: str,
-    errorbar_kwargs: dict[Any] = dict(
-        color="#444444", fmt="x", linewidth=0, elinewidth=2, alpha=1, zorder=-3
-    ),
-    spectrum_kwargs: dict[Any] = dict(
-        # color=plot_color,
-        # label=model_title,
-        linewidth=3,
-        linestyle="solid",
-        alpha=1,
-        zorder=2,  # 2-j
-    ),
-) -> plt.Axes:
-    wavelength_min: float = np.min(wavelengths)
-    wavelength_max: float = np.max(wavelengths)
-    wavelength_range: float = wavelength_max - wavelength_min
-
-    xmin = wavelength_min - PADDING * wavelength_range
-    xmax = wavelength_max + PADDING * wavelength_range
-    spectrum_axis.set_xlim([xmin, xmax])
-
-    spectrum_axis.errorbar(wavelengths, data, error, **errorbar_kwargs)
-
-    spectrum_axis.plot(
-        wavelengths,
-        model,
-        color=plot_color,
-        label=model_title,
-        **spectrum_kwargs,
-    )
-
-    return spectrum_axis
-
-
-def plot_alkali_lines_on_spectrum(spectrum_axis: plt.Axes) -> plt.Axes:
-    alkali_line_positions = [1.139, 1.141, 1.169, 1.177, 1.244, 1.253, 1.268]
-
-    wavelength_min, wavelength_max = spectrum_axis.get_xlim()
-    assert all(
-        wavelength_min <= alkali_line_positions <= wavelength_max
-    ), "At least one of the alkali lines may fall outside your plotted wavelength range."
-
-    [
-        spectrum_axis.axvline(
-            line_position_in_microns,
-            linestyle="dashed",
-            linewidth=1.5,
-            zorder=-10,
-            color="#888888",
-        )
-        for line_position_in_microns in alkali_line_positions
-    ]
-
-    y_text = spectrum_axis.get_ylim()[0] + 0.1 * np.diff(spectrum_axis.get_ylim())
-    spectrum_axis.text(
-        (1.169 + 1.177) / 2, y_text, "KI", fontsize=20, horizontalalignment="center"
-    )
-    spectrum_axis.text(
-        (1.244 + 1.253) / 2, y_text, "KI", fontsize=20, horizontalalignment="center"
-    )
-    spectrum_axis.text(1.268, y_text, "NaI", fontsize=20, horizontalalignment="center")
-
-    return spectrum_axis
-
-
-def calculate_residuals(
-    datas: NDArray[np.float_],
-    models: NDArray[np.float_],
-    errors: NDArray[np.float_],
-) -> NDArray[np.float_]:
-    return (models - datas) / errors
 
 
 def calculate_chi_squared(
@@ -285,56 +184,8 @@ def calculate_chi_squared(
     return reduced_chi_squared
 
 
-def generate_residual_plot_by_band(
-    residual_axis: plt.Axes,
-    wavelengths: NDArray[np.float_],
-    residuals: NDArray[np.float_],
-    plot_color: str,
-    plot_kwargs: dict[str, Any] = dict(
-        linewidth=3, linestyle="solid", alpha=1, zorder=2
-    ),
-    axhline_kwargs: dict[str, Any] = dict(
-        y=0, color="#444444", linewidth=2, linestyle="dashed", zorder=-10
-    ),
-    # yaxis_label_fontsize: int | float = 26,
-) -> plt.Axes:
-    wave_min = np.min(wavelengths)
-    wave_max = np.max(wavelengths)
-    xmin = wave_min - PADDING * np.abs(wave_max - wave_min)
-    xmax = wave_max + PADDING * np.abs(wave_max - wave_min)
-    residual_axis.set_xlim([xmin, xmax])
-
-    residual_ymin = np.nanmin(residuals)
-    residual_ymax = np.nanmax(residuals)
-    ymin = residual_ymin - PADDING * np.abs(residual_ymax - residual_ymin)
-    ymax = residual_ymax + PADDING * np.abs(residual_ymax - residual_ymin)
-    residual_axis.set_ylim([ymin, ymax])
-
-    residual_axis.plot(wavelengths, residuals, color=plot_color, **plot_kwargs)
-
-    residual_axis.axhline(**axhline_kwargs)
-
-    residual_axis.minorticks_on()
-
-    # if yaxis_label_fontsize:
-    #    residual_axis.set_ylabel(r"Residual/$\sigma$", fontsize=yaxis_label_fontsize)
-
-    return residual_axis
-
-
 # You have structure by plot type (row), band (column), and then overplotting multiple
 # runs/cases.
-
-
-class DrawsOnAxis(Protocol):
-    def __call__(self, axis: plt.Axes, *args, **kwargs) -> plt.Axes: ...
-
-
-@dataclass
-class PlotArtists:
-    draw_spectrum: DrawsOnAxis
-    draw_residuals: DrawsOnAxis
-    draw_contributions: Sequence[DrawsOnAxis]
 
 
 @dataclass
@@ -486,7 +337,7 @@ def plot_multi_figure_iteration(
     number_of_parameters: int,
     plot_color: str,
     iteration_index: int = 0,
-    multi_figure_axes: Sequence[MultiFigureColumn] | None = None,
+    multi_figure_axes: Sequence[MultiFigure] | None = None,
 ) -> list[plt.Figure, tuple[plt.Axes]]:
     j = iteration_index
 
@@ -1147,9 +998,7 @@ def plot_MLE_spectrum_of_one_run_against_different_data(
             MLE_output_dict["header"], MLE_output_dict["parameters"], output_file
         )
 
-    prepped_inputs_and_binned_wavelengths = prep_inputs_and_get_binned_wavelengths(
-        output_MLE_filename
-    )
+    prepped_inputs_and_binned_wavelengths = prep_inputs_for_model(output_MLE_filename)
     prepped_inputs = prepped_inputs_and_binned_wavelengths["prepped_inputs"]
     binned_wavelengths = prepped_inputs_and_binned_wavelengths["binned_wavelengths"]
 

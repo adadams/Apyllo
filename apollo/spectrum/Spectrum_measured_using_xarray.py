@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from xarray import Dataset
@@ -14,7 +16,10 @@ from apollo.spectrum.band_bin_and_convolve import (
 from apollo.spectrum.Spectrum_using_xarray import Spectrum
 
 
+@dataclass
 class DataSpectrum(Spectrum, Measured, UsesXarray):
+    data: Dataset
+
     def __repr__(self) -> str:
         return (
             f"Spectrum for {self.data.attrs["title"]} {self.data} \n"

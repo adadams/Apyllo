@@ -1,17 +1,44 @@
-from os import PathLike
-from typing import Sequence
+from collections.abc import Callable
+from functools import partial
+from pathlib import Path
+from typing import Final, Sequence
 
 from pint import UnitRegistry
 from pint_xarray import setup_registry
-from xarray import Dataset, open_dataset
+from xarray import Dataset, load_dataset
 
+from apollo.convenience_types import Pathlike
+from apollo.useful_internal_functions import compose
 from user_directories import USER_DIRECTORY
 
-ADDITIONAL_UNITS_FILE = USER_DIRECTORY / "specifications" / "additional_units.txt"
+ADDITIONAL_UNITS_FILE: Final[Path] = (
+    USER_DIRECTORY / "specifications" / "additional_units.txt"
+)
+
+UNSAFE_VARIABLE_NAMES_TO_SAFE: Final[dict[str, str]] = {
+    "C/O": "CtoO_ratio",
+    "[Fe/H]": "Metallicity",
+}
+
+SAFE_VARIABLE_NAMES_TO_UNSAFE: Final[dict[str, str]] = {
+    safe_name: unsafe_name
+    for unsafe_name, safe_name in UNSAFE_VARIABLE_NAMES_TO_SAFE.items()
+}
+
+
+def check_and_replace_variable_names(
+    dataset: Dataset,
+    variable_mapping: dict[str, str],
+) -> Dataset:
+    for initial_name, final_name in variable_mapping.items():
+        if initial_name in dataset.data_vars:
+            dataset = dataset.rename({initial_name: final_name})
+
+    return dataset
 
 
 def prep_unit_registry(
-    additional_units_file: PathLike = ADDITIONAL_UNITS_FILE,
+    additional_units_file: Pathlike = ADDITIONAL_UNITS_FILE,
 ) -> UnitRegistry:
     unit_registry: UnitRegistry = setup_registry(UnitRegistry())
     unit_registry.load_definitions(additional_units_file)
@@ -19,41 +46,41 @@ def prep_unit_registry(
     return unit_registry
 
 
-def load_dataset_with_units(
-    filename_or_obj: PathLike, units: Sequence[str] = None, **kwargs
+def put_dataset_units_in_attrs(dataset: Dataset) -> Dataset:
+    return dataset.pint.dequantify()
+
+
+def pull_dataset_units_from_attrs(
+    dataset: Dataset, units: Sequence[str] | None = None
 ) -> Dataset:
-    """
-    Effectively the same as load_dataset() in xarray (see the relevant documentation),
-    but with automatic loading of units using Pint. One has to store the units as text
-    attributes in the netcdf files, and tell Pint to add them to the data arrays when one
-    loads them into xarray datasets.
-    """
-    if units is None:
-        units = []
+    for variable_name, variable in dataset.data_vars.items():
+        # order of precedence:
+        # (1) units provided in argument
+        # (2) "units" in dataset file attributes
+        if variable_name in units:
+            variable = variable.assign_attrs(units=units[variable_name])
+        elif "units" not in variable.attrs:
+            variable = variable.assign_attrs(units="dimensionless")
 
-    if "cache" in kwargs:
-        raise TypeError("cache has no effect in this context")
-
-    with open_dataset(filename_or_obj, **kwargs) as dataset_IO:
-        dataset = dataset_IO.load()
-
-        for variable_name, variable in dataset.data_vars.items():
-            # order of precedence:
-            # (1) units provided in argument
-            # (2) "units" in dataset file attributes
-            if variable_name in units:
-                variable = variable.assign_attrs(units=units[variable_name])
-            elif "units" not in variable.attrs:
-                variable = variable.assign_attrs(units="dimensionless")
-
-        dataset_with_units = dataset.pint.quantify(unit_registry=prep_unit_registry())
-
-    return dataset_with_units
+    return dataset.pint.quantify(unit_registry=prep_unit_registry())
 
 
-def save_dataset_with_units(
+load_and_prep_dataset: Callable[[Dataset], Dataset] = compose(
+    load_dataset,
+    pull_dataset_units_from_attrs,
+    partial(check_and_replace_variable_names, SAFE_VARIABLE_NAMES_TO_UNSAFE),
+)
+
+
+prep_dataset_for_saving: Callable[[Dataset], Dataset] = compose(
+    put_dataset_units_in_attrs,
+    partial(check_and_replace_variable_names, UNSAFE_VARIABLE_NAMES_TO_SAFE),
+)
+
+
+def prep_and_save_dataset(
     dataset: Dataset, *to_netcdf_args, **to_netcdf_kwargs
 ) -> None:
-    dataset_with_units_as_attrs: Dataset = dataset.pint.dequantify()
+    prepped_dataset: Dataset = prep_dataset_for_saving(dataset)
 
-    return dataset_with_units_as_attrs.to_netcdf(*to_netcdf_args, **to_netcdf_kwargs)
+    return prepped_dataset.to_netcdf(*to_netcdf_args, **to_netcdf_kwargs)

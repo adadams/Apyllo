@@ -13,9 +13,7 @@ sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.convenience_types import Pathlike  # noqa: E402
 from apollo.dataset.IO import load_dataset_with_units  # noqa: E402
-from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
-    unpack_results_filepaths,  # noqa: E402
-)
+from apollo.retrieval.results.IO import unpack_results_filepaths  # noqa: E402
 from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
     read_APOLLO_data_into_dataset,  # noqa: E402
 )
@@ -150,3 +148,12 @@ if __name__ == "__main__":
 
     pprint(f"{reduced_chi_squared=}")
     pprint(f"{direct_reduced_chi_squared=}")
+
+    uninflated_reduced_chi_squared, uninflated_direct_reduced_chi_squared = (
+        calculate_reduced_chi_square_for_runs(
+            SPECIFIC_RESULTS_DIRECTORY, inflate_errors=False
+        )
+    )
+
+    pprint(f"{uninflated_reduced_chi_squared=}")
+    pprint(f"{uninflated_direct_reduced_chi_squared=}")

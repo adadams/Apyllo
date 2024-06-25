@@ -1,38 +1,65 @@
 import sys
+from dataclasses import dataclass
 from operator import itemgetter
 from os.path import abspath
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import tomllib
 from numpy.typing import NDArray
 from xarray import Dataset
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
-
 from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.make_forward_model_from_file import prep_inputs_for_model  # noqa: E402
-from apollo.retrieval.build_results_datasets import (  # noqa: E402
-    make_run_parameter_dataset,
-)
-from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
-    load_and_filter_all_parameters_by_importance,
-)
-from apollo.retrieval.manipulate_results_datasets import (  # noqa: E402
-    calculate_MLE,
+from apollo.retrieval.results.manipulate_results_datasets import (  # noqa: E402
     change_parameter_values_using_MLE_dataset,
 )
-from apollo.submodels import TP  # noqa: E402
+from apollo.useful_internal_functions import load_multi_yaml_file_into_dict
 from user.forward_models.inputs.parse_APOLLO_inputs import (  # noqa: E402
     change_properties_of_parameters,
     parse_APOLLO_input_file,
     write_parsed_input_to_output,
 )
+
+
+@dataclass
+class SamplingResults:
+    samples: NDArray[np.float_]
+    log_likelihoods: NDArray[np.float_]
+
+
+def unpack_results_filepaths(
+    results_directory: Pathlike,
+    directory_yaml_filename: Pathlike = "results_files.yaml",
+) -> dict[str, dict[str, Pathlike]]:
+    run_results_directories: dict[str, dict[str, str]] = load_multi_yaml_file_into_dict(
+        Path(results_directory) / directory_yaml_filename
+    )
+
+    # Results directories are all filenames EXCEPT for the parsing keyword arguments,
+    # which will be parsed as a dictionary.
+    run_filepaths: dict[str, dict[str, Pathlike | dict[str, Any]]] = {
+        run_name: {
+            entry_name: (
+                # This assumes you put all the needed files in the results folder for the run.
+                # This could be generalized if the results_files.yaml had relative paths to begin with.
+                Path(results_directory) / run_name / entry
+                if not isinstance(entry, dict)
+                else entry
+            )
+            for entry_name, entry in run_results_directory.items()
+        }
+        for run_name, run_results_directory in run_results_directories.items()
+    }
+
+    return run_filepaths
+
+
+APOLLO_DIRECTORY = abspath(
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+)
+if APOLLO_DIRECTORY not in sys.path:
+    sys.path.append(APOLLO_DIRECTORY)
 
 
 def guess_default_units_from_parameter_names(
@@ -109,12 +136,12 @@ def get_parameter_properties_from_defaults(
         guess_default_string_formats_from_parameter_names(parameter_names)
     )
 
-    return dict(
-        parameter_names=parameter_names,
-        parameter_units=parameter_units,
-        parameter_default_string_formattings=parameter_default_string_formattings,
-        parameter_group_names=parameter_group_names,
-    )
+    return {
+        "parameter_names": parameter_names,
+        "parameter_units": parameter_units,
+        "parameter_default_string_formattings": parameter_default_string_formattings,
+        "parameter_group_names": parameter_group_names,
+    }
 
 
 def get_print_names_from_parameter_names(
@@ -130,49 +157,35 @@ def get_print_names_from_parameter_names(
     ]
 
 
-def prep_inputs_and_get_binned_wavelengths(
-    parameter_filepath: Pathlike,
-) -> dict:
-    prepped_inputs, binned_wavelengths = prep_inputs_for_model(parameter_filepath)
-
-    return {
-        "prepped_inputs": prepped_inputs,
-        "binned_wavelengths": binned_wavelengths,
-    }
-
-
 def create_MLE_output_dictionary(
-    fitting_results_filepath: Pathlike,
-    derived_fit_parameters_filepath: Pathlike,
+    results: SamplingResults,
+    MLE_parameters: Dataset,
     input_parameters_filepath: Pathlike,
 ) -> dict:
-    results = load_and_filter_all_parameters_by_importance(
-        fitting_results_filepath, derived_fit_parameters_filepath
-    )
-    parameter_samples = results["samples"]
-    log_likelihoods = results["log_likelihoods"]
+    # parameter_samples = results.samples
+    # log_likelihoods = results.log_likelihoods
 
     with open(input_parameters_filepath, newline="") as input_file:
         parsed_input_file = parse_APOLLO_input_file(input_file, delimiter=" ")
 
     input_parameters = parsed_input_file["parameters"]
-    input_parameter_names = parsed_input_file["parameter_names"]
-    input_parameter_group_slices = parsed_input_file["parameter_group_slices"]
+    # input_parameter_names = parsed_input_file["parameter_names"]
+    # input_parameter_group_slices = parsed_input_file["parameter_group_slices"]
 
-    parameter_properties = get_parameter_properties_from_defaults(
-        input_parameter_names, input_parameter_group_slices
-    )
-    parameter_print_names = get_print_names_from_parameter_names(
-        input_parameter_names, "user/results/2M2236/parameter_print_attributes.toml"
-    )
+    # parameter_properties = get_parameter_properties_from_defaults(
+    #    input_parameter_names, input_parameter_group_slices
+    # )
+    # parameter_print_names = get_print_names_from_parameter_names(
+    #    input_parameter_names, "user/results/2M2236/parameter_print_attributes.toml"
+    # )
 
-    sample_dataset = make_run_parameter_dataset(
-        **parameter_properties,
-        parameter_print_names=parameter_print_names,
-        parameter_values=parameter_samples,
-        log_likelihoods=log_likelihoods,
-    )
-    MLE_parameters = calculate_MLE(sample_dataset)
+    # sample_dataset = make_run_parameter_dataset(
+    #    **parameter_properties,
+    #    parameter_print_names=parameter_print_names,
+    #    parameter_values=parameter_samples,
+    #    log_likelihoods=log_likelihoods,
+    # )
+    # MLE_parameters = calculate_MLE(sample_dataset)
 
     MLE_output_parameter_dict = change_properties_of_parameters(
         input_parameters,
@@ -193,37 +206,34 @@ def create_MLE_output_dictionary(
 
 
 def make_MLE_parameter_file_from_input_parameter_file(
-    fitting_results_filepath: Pathlike,
-    derived_fit_parameters_filepath: Pathlike,
+    # results: SamplingResults,
+    MLE_parameters: Dataset,
     input_parameters_filepath: Pathlike,
     data_filepath: Pathlike,
 ) -> None:
-    results = load_and_filter_all_parameters_by_importance(
-        fitting_results_filepath, derived_fit_parameters_filepath
-    )
-    parameter_samples = results["samples"]
-    log_likelihoods = results["log_likelihoods"]
+    # parameter_samples = results.samples
+    # log_likelihoods = results.log_likelihoods
 
     with open(input_parameters_filepath, newline="") as input_file:
         parsed_input_file = parse_APOLLO_input_file(input_file, delimiter=" ")
 
     input_parameters = parsed_input_file["parameters"]
-    input_parameter_names = parsed_input_file["parameter_names"]
-    input_parameter_group_slices = parsed_input_file["parameter_group_slices"]
+    # input_parameter_names = parsed_input_file["parameter_names"]
+    # input_parameter_group_slices = parsed_input_file["parameter_group_slices"]
     input_file_headers = parsed_input_file["header"]
 
     input_file_headers["Data"] = (str(data_filepath.relative_to(Path.cwd())),)
 
-    parameter_properties = get_parameter_properties_from_defaults(
-        input_parameter_names, input_parameter_group_slices
-    )
+    # parameter_properties = get_parameter_properties_from_defaults(
+    #    input_parameter_names, input_parameter_group_slices
+    # )
 
-    sample_dataset = make_run_parameter_dataset(
-        **parameter_properties,
-        parameter_values=parameter_samples,
-        log_likelihoods=log_likelihoods,
-    )
-    MLE_parameters = calculate_MLE(sample_dataset)
+    # sample_dataset = make_run_parameter_dataset(
+    #    **parameter_properties,
+    #    parameter_values=parameter_samples,
+    #    log_likelihoods=log_likelihoods,
+    # )
+    # MLE_parameters = calculate_MLE(sample_dataset)
 
     MLE_output_parameter_dict = change_properties_of_parameters(
         input_parameters,
@@ -240,41 +250,3 @@ def make_MLE_parameter_file_from_input_parameter_file(
         )
 
     return None
-
-
-def make_dataset_from_APOLLO_parameter_file(
-    results_parameter_filepath: Path,
-    parameter_values: NDArray[np.float_],
-    log_likelihoods: Sequence[float],
-    **parsing_kwargs,
-) -> Dataset:
-    with open(results_parameter_filepath, newline="") as retrieved_file:
-        parsed_retrieved_file = parse_APOLLO_input_file(
-            retrieved_file, **parsing_kwargs
-        )
-
-    retrieved_parameter_names = parsed_retrieved_file["parameter_names"]
-    retrieved_parameter_group_slices = parsed_retrieved_file["parameter_group_slices"]
-
-    parameter_properties = get_parameter_properties_from_defaults(
-        retrieved_parameter_names, retrieved_parameter_group_slices
-    )
-
-    return make_run_parameter_dataset(
-        **parameter_properties,
-        parameter_values=parameter_values,
-        log_likelihoods=log_likelihoods,
-    )
-
-
-def get_TP_function_from_APOLLO_parameter_file(
-    parameter_filepath: Pathlike, **parsing_kwargs
-) -> Callable[[Any], Sequence[float]]:
-    with open(parameter_filepath, newline="") as retrieved_file:
-        parsed_retrieved_file = parse_APOLLO_input_file(
-            retrieved_file, **parsing_kwargs
-        )
-
-    TP_function_name = parsed_retrieved_file["parameters"]["Atm"]["options"][0]
-
-    return getattr(TP, TP_function_name)

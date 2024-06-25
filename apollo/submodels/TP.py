@@ -1,11 +1,16 @@
 from pathlib import Path
-from typing import Sequence
+from typing import Protocol
 
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import PchipInterpolator as monotonic_interpolation
 from scipy.ndimage import gaussian_filter1d as gaussian_smoothing
 
 from apollo.submodels.function_model import make_model
+
+
+class isTPFunction(Protocol):
+    def __call__(self, *args, pressures: ArrayLike, **kwargs) -> NDArray[np.float_]: ...
 
 
 ########## ANJALI PIETTE et. al. Profile ##########
@@ -28,8 +33,8 @@ def piette(
     T_1p5: float,
     T_2: float,
     T_2p5: float,
-    pressures: Sequence[float],  # log(P/bars)
-):
+    pressures: ArrayLike,  # log(P/bars)
+) -> NDArray[np.float_]:
     LOGP_NODES = np.array([-4, -3, -2, -1, 0, 0.5, 1, 1.5, 2, 2.5])
     T_NODES = np.array([T_m4, T_m3, T_m2, T_m1, T_0, T_0p5, T_1, T_1p5, T_2, T_2p5])
 

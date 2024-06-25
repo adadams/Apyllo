@@ -1,46 +1,57 @@
 from functools import lru_cache
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, TypedDict
 
 import numpy as np
+from numpy.typing import NDArray
 
 from apollo.Apollo_components import (
     MakeObservation,
     MakePlanet,
+    ProcessedInputs,
     ProcessInputs,
     ReadInputsfromFile,
 )
 from apollo.convenience_types import Pathlike
+from apollo.planet import Planet
 
 OPACITY_DIRECTORY = "/Volumes/ResearchStorage/Opacities_0v10/"
 
 
+class PreppedInputs(TypedDict):
+    model_function: Callable[[Any], Any]
+    observation: Callable[[Any], Any]
+    model_parameters: Sequence[float]
+
+
 @lru_cache
-def prep_inputs_for_model(input_filepath: Pathlike):
-    inputs = ReadInputsfromFile(input_filepath)
+def prep_inputs_for_model(input_filepath: Pathlike) -> dict:
+    inputs: dict = ReadInputsfromFile(input_filepath)
     inputs["opacdir"] = OPACITY_DIRECTORY
 
-    processed_inputs = ProcessInputs(**inputs)
+    processed_inputs: ProcessedInputs = ProcessInputs(**inputs)
 
-    planet = MakePlanet(processed_inputs["MakePlanet_kwargs"])
+    planet: Planet = MakePlanet(processed_inputs["MakePlanet_kwargs"])
 
-    get_model = planet.MakeModel(processed_inputs["MakeModel_initialization_kwargs"])
+    get_model: Callable = planet.MakeModel(
+        processed_inputs["MakeModel_initialization_kwargs"]
+    )
 
-    observation = MakeObservation(
+    observation: Callable = MakeObservation(
         processed_inputs["ModelObservable_initialization_kwargs"]
     )
 
-    binned_wavelengths = processed_inputs["ModelObservable_initialization_kwargs"][
-        "data_wavelengths"
-    ]
+    binned_wavelengths: NDArray[np.float_] = processed_inputs[
+        "ModelObservable_initialization_kwargs"
+    ]["data_wavelengths"]
 
-    return (
-        dict(
+    return {
+        "prepped_inputs": PreppedInputs(
             model_function=get_model,
             observation=observation,
             model_parameters=processed_inputs["parameters"],
         ),
-        binned_wavelengths,
-    )
+        "binned_wavelengths": binned_wavelengths,
+    }
 
 
 def evaluate_model_spectrum(

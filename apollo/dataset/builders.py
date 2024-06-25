@@ -17,16 +17,23 @@ class AttributeBlueprint(TypedDict):
 
 
 class VariableBlueprint(TypedDict):
-    data: NDArray[np.float_]
     dims: str | Sequence[str]
+    data: NDArray[np.float_]
     attrs: Optional[AttributeBlueprint]
     encoding: Optional[dict[str, Any]]
 
 
 class DataArrayBlueprint(TypedDict):
     data: NDArray[np.float_]
+    coords: Optional[dict[str, Sequence[float]]]
     dims: str | Sequence[str]
     name: str
+    attrs: Optional[AttributeBlueprint]
+
+
+class DatasetBlueprint(TypedDict):
+    data_vars: dict[str, VariableBlueprint]
+    coords: Optional[dict[str, Sequence[float]]]
     attrs: Optional[AttributeBlueprint]
 
 

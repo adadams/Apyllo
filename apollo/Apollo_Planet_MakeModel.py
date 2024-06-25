@@ -16,7 +16,9 @@ APOLLO_DIRECTORY = abspath(
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
-from apollo import calculate_ctoo_and_metallicity  # noqa: E402
+from apollo.calculate_ctoo_and_metallicity import (  # noqa: E402
+    calculate_CtoO_and_metallicity,
+)
 
 # REARTH_IN_CM = R_earth.to(cm).value
 REARTH_IN_CM: Final[float] = 6.371e8

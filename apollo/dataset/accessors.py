@@ -12,11 +12,11 @@ def change_units(dataarray: DataArray, new_units: str) -> Dataset:
 
 def get_attribute_from_dataset(
     input_dataset: Dataset, attribute_name: str
-) -> list[Any]:
-    return [
-        dataarray.attrs[attribute_name]
+) -> dict[str, Any]:
+    return {
+        variable_name: dataarray.attrs[attribute_name]
         for variable_name, dataarray in input_dataset.items()
-    ]
+    }
 
 
 def extract_dataset_subset_by_attribute(

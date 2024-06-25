@@ -3,7 +3,7 @@ from typing import Self
 
 import numpy as np
 from numpy.typing import NDArray
-from xarray import DataArray, Dataset
+from xarray import Dataset
 
 from apollo.dataset.builders import make_dataset_variables_from_dict
 from apollo.dataset.UsesXarray_ABC import UsesXarray
@@ -18,8 +18,7 @@ from apollo.spectrum.Spectral_protocol import Spectral
 
 @dataclass
 class Spectrum(Spectral, UsesXarray):
-    def __getattr__(self, __name: str) -> DataArray:
-        return self.data.get(__name)
+    data: Dataset
 
     def __repr__(self) -> str:
         return (

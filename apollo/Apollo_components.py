@@ -1,9 +1,12 @@
 import sys
+from collections.abc import Callable
 from functools import partial
 from os.path import abspath
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
+from numpy.typing import NDArray
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -84,7 +87,7 @@ def ReadInputsfromFile(
     name_suffix="",
     override=True,
     manual=True,
-):
+) -> dict:
     # Default Settings
     ######################################################################################
     name = "example"  # Bundled example file
@@ -452,82 +455,89 @@ def ReadInputsfromFile(
                 ensparams.append(i)
             i = i + 1
 
-    return dict(
-        task=task,
-        pnames=pnames,
-        nvars=nvars,
-        override=override,
-        pllen=pllen,
-        # checkpoint_file=checkpoint_file, # Not in ProcessInputs
-        name=name,
-        mode=mode,
-        modestr=modestr,
-        parallel=parallel,
-        datain=Path(APOLLO_DIRECTORY) / datain,
-        # polyfit=polyfit, # Not in ProcessInputs
-        sampler=sampler,
-        # samples_file=samples_file, # Not in ProcessInputs
-        # num_samples=num_samples, # Not in ProcessInputs
-        dataconv=dataconv,
-        databin=databin,
-        degrade=degrade,
-        # prior_type=prior_type, # Not in ProcessInputs
-        nwalkers=nwalkers,
-        nsteps=nsteps,
-        smooth=smooth,
-        # igamma=igamma, # Not in ProcessInputs
-        # ilogg=ilogg, # Not in ProcessInputs
-        atmtype=atmtype,
-        verbatim=verbatim,
-        cloudmod=cloudmod,
-        hazestr=hazestr,
-        hazetype=hazetype,
-        plparams=plparams,
-        norad=norad,
-        guess=guess,
-        mu=mu,
-        sigma=sigma,
-        bounds=bounds,
-        a1=a1,
-        anum=anum,
-        b1=b1,
-        bnum=bnum,
-        basic=basic,
-        c1=c1,
-        cnum=cnum,
-        clouds=clouds,
-        e1=e1,
-        enum=enum,
-        end=end,
-        g1=g1,
-        gnum=gnum,
-        gases=gases,
-        tstar=tstar,
-        rstar=rstar,
-        sma=sma,
-        # starspec=starspec, # Not in ProcessInputs
-        dist=dist,
-        # RA=RA, # Not in ProcessInputs
-        # dec=dec, # Not in ProcessInputs
-        # minmass=minmass, # Not in ProcessInputs
-        # maxmass=maxmass, # Not in ProcessInputs
-        hires=hires,
-        lores=lores,
-        minP=minP,
-        maxP=maxP,
-        P_profile=P_profile,
-        gray=gray,
-        tgray=tgray,
-        vres=vres,
-        streams=streams,
-        ensparams=ensparams,
-        # outmode=outmode, # Not in ProcessInputs
-        # exptime=exptime, # Not in ProcessInputs
-        # outdir=outdir, # Not in ProcessInputs
-        short=short,
-        printfull=printfull,
-        opacdir=opacdir,
-    )
+    return {
+        "task": task,
+        "pnames": pnames,
+        "nvars": nvars,
+        "override": override,
+        "pllen": pllen,
+        # "checkpoint_file": checkpoint_file, # Not in ProcessInputs
+        "name": name,
+        "mode": mode,
+        "modestr": modestr,
+        "parallel": parallel,
+        "datain": Path(APOLLO_DIRECTORY) / datain,
+        # "polyfit": polyfit, # Not in ProcessInputs
+        "sampler": sampler,
+        # "samples_file": samples_file, # Not in ProcessInputs
+        # "num_samples": num_samples, # Not in ProcessInputs
+        "dataconv": dataconv,
+        "databin": databin,
+        "degrade": degrade,
+        # "prior_type": prior_type, # Not in ProcessInputs
+        "nwalkers": nwalkers,
+        "nsteps": nsteps,
+        "smooth": smooth,
+        # "igamma": igamma, # Not in ProcessInputs
+        # "ilogg": ilogg, # Not in ProcessInputs
+        "atmtype": atmtype,
+        "verbatim": verbatim,
+        "cloudmod": cloudmod,
+        "hazestr": hazestr,
+        "hazetype": hazetype,
+        "plparams": plparams,
+        "norad": norad,
+        "guess": guess,
+        "mu": mu,
+        "sigma": sigma,
+        "bounds": bounds,
+        "a1": a1,
+        "anum": anum,
+        "b1": b1,
+        "bnum": bnum,
+        "basic": basic,
+        "c1": c1,
+        "cnum": cnum,
+        "clouds": clouds,
+        "e1": e1,
+        "enum": enum,
+        "end": end,
+        "g1": g1,
+        "gnum": gnum,
+        "gases": gases,
+        "tstar": tstar,
+        "rstar": rstar,
+        "sma": sma,
+        # "starspec": starspec, # Not in ProcessInputs
+        "dist": dist,
+        # "RA": RA, # Not in ProcessInputs
+        # "dec": dec, # Not in ProcessInputs
+        # "minmass": minmass, # Not in ProcessInputs
+        # "maxmass": maxmass, # Not in ProcessInputs
+        "hires": hires,
+        "lores": lores,
+        "minP": minP,
+        "maxP": maxP,
+        "P_profile": P_profile,
+        "gray": gray,
+        "tgray": tgray,
+        "vres": vres,
+        "streams": streams,
+        "ensparams": ensparams,
+        # "outmode": outmode, # Not in ProcessInputs
+        # "exptime": exptime, # Not in ProcessInputs
+        # "outdir": outdir, # Not in ProcessInputs
+        "short": short,
+        "printfull": printfull,
+        "opacdir": opacdir,
+    }
+
+
+class ProcessedInputs(TypedDict):
+    parameters: NDArray[np.float_]
+    MakePlanet_kwargs: CPlanetBlueprint
+    MakeModel_initialization_kwargs: MakeModelBlueprint
+    ModelObservable_initialization_kwargs: ObserveModelBlueprint
 
 
 def ProcessInputs(
@@ -590,7 +600,7 @@ def ProcessInputs(
     maxP,
     ensparams,
     streams,
-):
+) -> ProcessedInputs:
     cluster_mode = (task == "Retrieval") and parallel
 
     # Output file name: Object name, type of observation, # of parameters, and # of steps.
@@ -1004,7 +1014,7 @@ def ProcessInputs(
                 fout.write(" {0:f}".format(eplist[j][ensparams[i]]))
             fout.write("\n")
 
-    MakePlanet_kwargs = CPlanetBlueprint(
+    MakePlanet_kwargs: CPlanetBlueprint = CPlanetBlueprint(
         observation_mode_index=mode,
         cloud_model_index=cloudmod,
         hazetype_index=hazetype,
@@ -1018,7 +1028,7 @@ def ProcessInputs(
         Teff_opacity_catalog_name=lores,
     )
 
-    MakeModel_initialization_kwargs = MakeModelBlueprint(
+    MakeModel_initialization_kwargs: MakeModelBlueprint = MakeModelBlueprint(
         model_wavelengths=modwave,
         gas_species=gases,
         minimum_model_pressure=minP,
@@ -1051,23 +1061,25 @@ def ProcessInputs(
         APOLLO_use_mode=task,
     )
 
-    ModelObservable_initialization_kwargs = ObserveModelBlueprint(
-        data_wavelengths=wavemid,
-        model_wavelengths=modwave,
-        model_indices_by_opacity_bins=modindex,
-        distance_to_system=dist,
-        bin_low_wavelength_indices_by_opacity_bins=ibinlo,
-        bin_high_wavelength_indices_by_opacity_bins=ibinhi,
-        bin_low_wavelength_offset_by_index=delibinlo,
-        bin_high_wavelength_offset_by_index=delibinhi,
-        binned_data_flux=totalflux,
-        data_downbinning_factor=databin,
-        data_convolution_factor=dataconv,
-        data_band_bounding_indices=bandindex,
-        observation_mode_index=mode,
-        normalize_spectrum=polyfit,
-        use_default_radius=norad,
-        data_errors_binned_to_model=mastererr,
+    ModelObservable_initialization_kwargs: ObserveModelBlueprint = (
+        ObserveModelBlueprint(
+            data_wavelengths=wavemid,
+            model_wavelengths=modwave,
+            model_indices_by_opacity_bins=modindex,
+            distance_to_system=dist,
+            bin_low_wavelength_indices_by_opacity_bins=ibinlo,
+            bin_high_wavelength_indices_by_opacity_bins=ibinhi,
+            bin_low_wavelength_offset_by_index=delibinlo,
+            bin_high_wavelength_offset_by_index=delibinhi,
+            binned_data_flux=totalflux,
+            data_downbinning_factor=databin,
+            data_convolution_factor=dataconv,
+            data_band_bounding_indices=bandindex,
+            observation_mode_index=mode,
+            normalize_spectrum=polyfit,
+            use_default_radius=norad,
+            data_errors_binned_to_model=mastererr,
+        )
     )
     """
         modindex = model_indices_by_opacity_bins
@@ -1087,7 +1099,7 @@ def ProcessInputs(
         norm = normalize_spectrum
         mastererr = data_errors_binned_to_model
     """
-    return dict(
+    return ProcessedInputs(
         parameters=plparams,
         MakePlanet_kwargs=MakePlanet_kwargs,
         MakeModel_initialization_kwargs=MakeModel_initialization_kwargs,
@@ -1099,7 +1111,7 @@ def MakePlanet(PlanetCCore_kwargs: CPlanetBlueprint) -> Planet:
     return Planet("b", PlanetCCore_kwargs)
 
 
-def MakeObservation(observation_constructor: ObserveModelBlueprint):
+def MakeObservation(observation_constructor: ObserveModelBlueprint) -> Callable:
     def ObservationModel(
         emission_flux: list,
         radius_parameter: float,

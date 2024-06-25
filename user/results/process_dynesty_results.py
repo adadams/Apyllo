@@ -1,29 +1,32 @@
 import sys
 from os.path import abspath
 from pathlib import Path
+from typing import Any
+
+from xarray import Dataset
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from typing import Any  # noqa: E402
-
-from xarray import Dataset  # noqa: E402
-
 from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.retrieval.dynesty.dynesty_interface_with_apollo import (  # noqa: E402
-    get_TP_function_from_APOLLO_parameter_file,
-)
-from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
-    unpack_results_filepaths,
-)
-from apollo.retrieval.dynesty.prepare_final_results_datasets import (  # noqa: E402
+from apollo.retrieval.results.build_results_datasets import (  # noqa: E402
     compile_contributions_into_dataset,
     compile_results_into_dataset,
     prepare_MLE_dataset_from_results_dataset,
     prepare_model_spectra_dataset_from_free_parameters_dataset,
     prepare_TP_profile_dataset_from_results_dataset,
+)
+from apollo.retrieval.results.IO import (  # noqa: E402
+    SamplingResults,
+    unpack_results_filepaths,
+)
+from apollo.retrieval.samplers.dynesty.parse_dynesty_outputs import (  # noqa: E402
+    load_and_filter_all_parameters_by_importance,
+)
+from apollo.submodels.TP_models.get_TP_function import (  # noqa: E402
+    get_TP_function_from_APOLLO_parameter_file,
 )
 from user_directories import USER_DIRECTORIES  # noqa: E402
 
@@ -35,22 +38,22 @@ def process_dynesty_run(
     number_of_resampled_model_spectra: int = 500,
 ):
     fitting_results_filepath: Pathlike = run_filepath_directory["fitting_results"]
-
     derived_fit_parameters_filepath: Pathlike = run_filepath_directory[
         "derived_fit_parameters"
     ]
-
     MLE_parameters_filepath: Pathlike = run_filepath_directory["MLE_parameters"]
-
     original_contributions_filepath: Pathlike = run_filepath_directory["contributions"]
-
     output_filepath_plus_prefix: Pathlike = run_filepath_directory["output_file_prefix"]
-
     file_parsing_kwargs: dict[str, Any] = run_filepath_directory["file_parsing_kwargs"]
 
+    samples_and_likelihoods: SamplingResults = (
+        load_and_filter_all_parameters_by_importance(
+            fitting_results_filepath, derived_fit_parameters_filepath
+        )
+    )
+
     results_dataset = compile_results_into_dataset(
-        fitting_results_filepath,
-        derived_fit_parameters_filepath,
+        samples_and_likelihoods,
         MLE_parameters_filepath,
         output_filepath_plus_prefix,
         **file_parsing_kwargs,
