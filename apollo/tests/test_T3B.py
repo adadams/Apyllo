@@ -6,7 +6,7 @@ APOLLO_DIRECTORY = abspath(
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.formats.custom_types import Pathlike  # noqa: E402
 
 
 def parse_into_sections(filepath: Pathlike) -> None:

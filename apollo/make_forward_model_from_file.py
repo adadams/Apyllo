@@ -11,7 +11,7 @@ from apollo.Apollo_components import (
     ProcessInputs,
     ReadInputsfromFile,
 )
-from apollo.convenience_types import Pathlike
+from apollo.formats.custom_types import Pathlike
 from apollo.planet import Planet
 
 OPACITY_DIRECTORY = "/Volumes/ResearchStorage/Opacities_0v10/"

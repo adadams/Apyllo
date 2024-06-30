@@ -1,140 +1,133 @@
+from collections.abc import Callable, Sequence
+from functools import partial
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Optional
 
 import numpy as np
 import tomllib
 from numpy.typing import NDArray
-from xarray import Dataset
+from xarray import Coordinates, Dataset, Variable
 
-from apollo.convenience_types import Pathlike
 from apollo.dataset.builders import (
     AttributeBlueprint,
     DatasetBlueprint,
-    make_dataset_variables_from_dict,
+    SpecifiedDataBlueprint,
+    VariableBlueprint,
+    format_array_with_specifications,
+    read_specified_data_into_variable,
 )
+from apollo.formats.custom_types import Pathlike
 from apollo.spectrum.band_bin_and_convolve import (
     find_band_slices_from_wavelength_bins,
     get_wavelengths_from_wavelength_bins,
 )
-from apollo.spectrum.Spectrum_measured_using_xarray import DataSpectrum
+from apollo.useful_internal_functions import compose
 
 with open("apollo/formats/APOLLO_data_file_format.toml", "rb") as data_format_file:
-    APOLLO_DATA_FORMAT: dict[str, dict[str, Any]] = tomllib.load(data_format_file)
+    APOLLO_DATA_FORMAT: dict[str, AttributeBlueprint] = tomllib.load(data_format_file)
 
 
-def read_data_array_into_dictionary(
-    data_array: NDArray[np.float_], attributes: AttributeBlueprint = None
-) -> dict[str, Any]:
-    if attributes is None:
-        attributes = {}
+add_specifications_to_APOLLO_data: Callable[
+    [NDArray[np.float_]], dict[str, AttributeBlueprint]
+] = partial(format_array_with_specifications, data_format=APOLLO_DATA_FORMAT)
 
-    variable_dictionary: dict[str, NDArray[np.float_]] = {
-        variable_name: data_row
-        for variable_name, data_row in zip(attributes.keys(), data_array)
-    }
-    return make_dataset_variables_from_dict(
-        variable_dictionary, "wavelength", attributes
+load_APOLLO_data_file: Callable[[Pathlike], dict[str, SpecifiedDataBlueprint]] = (
+    compose(
+        partial(np.loadtxt, dtype=np.float32),
+        np.transpose,
+        add_specifications_to_APOLLO_data,
+    )
+)
+
+read_spectral_data_into_variable: Callable[[SpecifiedDataBlueprint], Variable] = (
+    partial(read_specified_data_into_variable, dimension_names=["wavelength"])
+)
+
+
+def make_wavelength_coordinate(
+    wavelength_bin_starts: Variable,
+    wavelength_bin_ends: Variable,
+    wavelength_attrs: Optional[dict[str, Any]] = None,
+) -> Variable:
+    wavelength_attrs = wavelength_attrs or wavelength_bin_starts.attrs
+
+    return Variable(
+        dims="wavelength",
+        data=get_wavelengths_from_wavelength_bins(
+            wavelength_bin_starts=wavelength_bin_starts.values,
+            wavelength_bin_ends=wavelength_bin_ends.values,
+        ),
+        attrs=wavelength_attrs,
     )
 
 
-def read_APOLLO_data_into_dictionary(
-    filepath: Pathlike, data_format: dict[str, dict[str, Any]]
-) -> dict[str, NDArray[np.float_]]:
-    data_as_numpy = np.loadtxt(filepath, dtype=np.float32).T
-
-    return read_data_array_into_dictionary(data_as_numpy, data_format)
-
-
-def make_wavelength_coordinate_dictionary_from_APOLLO_data_dictionary(
-    APOLLO_data_dictionary: dict[str, float],
-) -> dict[str, Any]:
-    return {
-        "dims": "wavelength",
-        "data": get_wavelengths_from_wavelength_bins(
-            APOLLO_data_dictionary["wavelength_bin_starts"]["data"],
-            APOLLO_data_dictionary["wavelength_bin_ends"]["data"],
-        ),
-        "attrs": APOLLO_data_dictionary["wavelength_bin_starts"]["attrs"],
-    }
-
-
-def make_band_coordinate_dictionary_for_dataset(
+def make_band_coordinate(
     band_slices: Sequence[slice], band_names: Sequence[str]
-) -> dict[str, Any]:
+) -> VariableBlueprint:
     assert len(band_slices) == len(band_names), (
         f"Number of provided data band names ({len(band_names)}) "
         f"does not match the number of slices found ({len(band_slices)})."
     )
 
-    band_lengths: list[int] = [
+    band_lengths: tuple[int] = tuple(
         band_slice.stop - band_slice.start for band_slice in band_slices
-    ]
+    )
 
-    band_array = np.concatenate(
+    band_array: NDArray[np.str_] = np.concatenate(
         [
             [band_name] * band_length
             for band_name, band_length in zip(band_names, band_lengths)
         ]
     )
 
-    return {"dims": "wavelength", "data": band_array}
+    return Variable(
+        dims="wavelength",
+        data=band_array,
+        attrs={"bands": tuple(band_names)},
+    )
 
 
 def read_APOLLO_data_into_dataset(
     filepath: Pathlike,
-    data_file_format: dict[str, dict[str, Any]] = APOLLO_DATA_FORMAT,
-    data_name: str = None,
     band_names: Sequence[str] = None,
-    output_file_name: Pathlike = None,
+    data_name: str = None,
+    **additional_dataset_attributes: Any,
 ) -> Dataset:
-    if data_name is None:
-        data_name: str = Path(filepath).stem
+    data_name = data_name or Path(filepath).stem
 
-    data_dictionary: dict[str, Any] = read_APOLLO_data_into_dictionary(
-        filepath, data_file_format
+    specified_APOLLO_data: dict[str, SpecifiedDataBlueprint] = load_APOLLO_data_file(
+        filepath
     )
 
-    wavelength_coordinates: dict[str, Any] = (
-        make_wavelength_coordinate_dictionary_from_APOLLO_data_dictionary(
-            data_dictionary
-        )
-    )
-    coordinates: dict[str, dict[str, Any]] = {"wavelength": wavelength_coordinates}
-
-    if band_names:
-        band_slices: list[slice] = find_band_slices_from_wavelength_bins(
-            data_dictionary["wavelength_bin_starts"]["data"],
-            data_dictionary["wavelength_bin_ends"]["data"],
-        )
-
-        band_coordinate_dictionary: dict[str, Any] = (
-            make_band_coordinate_dictionary_for_dataset(band_slices, band_names)
-        )
-        coordinates["band"] = band_coordinate_dictionary
-
-    dataset_dictionary: DatasetBlueprint = {
-        "data_vars": data_dictionary,
-        "coords": coordinates,
-        "attrs": {"title": data_name},
-        # "dims": "wavelength",
+    data_variables: dict[str, Variable] = {
+        variable_name: read_spectral_data_into_variable(variable_with_specs)
+        for variable_name, variable_with_specs in specified_APOLLO_data.items()
     }
 
-    dataset: Dataset = Dataset.from_dict(dataset_dictionary).pint.quantify()
-
-    if output_file_name is not None:
-        dataset.to_netcdf(output_file_name)
-
-    return dataset
-
-
-def read_APOLLO_data_into_DataSpectrum(
-    filepath: Pathlike,
-    data_file_format: dict[str, dict[str, Any]] = APOLLO_DATA_FORMAT,
-    data_name: str = None,
-    band_names: Sequence[str] = None,
-) -> DataSpectrum:
-    data: Dataset = read_APOLLO_data_into_dataset(
-        filepath, data_file_format, data_name, band_names
+    wavelength_coordinate: Variable = make_wavelength_coordinate(
+        wavelength_bin_starts=data_variables["wavelength_bin_starts"],
+        wavelength_bin_ends=data_variables["wavelength_bin_ends"],
     )
 
-    return DataSpectrum(data)
+    coordinate_dictionary: dict[str, Variable] = {"wavelength": wavelength_coordinate}
+
+    if band_names:
+        band_coordinate: Variable = make_band_coordinate(
+            band_slices=find_band_slices_from_wavelength_bins(
+                wavelength_bin_starts=data_variables["wavelength_bin_starts"],
+                wavelength_bin_ends=data_variables["wavelength_bin_ends"],
+            ),
+            band_names=band_names,
+        )
+
+        coordinate_dictionary["band"] = band_coordinate
+
+    coordinates: Coordinates = Coordinates(coordinate_dictionary)
+
+    dataset_inputs: DatasetBlueprint = {
+        "data_vars": data_variables,
+        "coords": coordinates,
+        "attrs": {"title": data_name, **additional_dataset_attributes},
+    }
+
+    return Dataset(**dataset_inputs).pint.quantify()

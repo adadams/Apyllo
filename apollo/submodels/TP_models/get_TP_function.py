@@ -1,7 +1,7 @@
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from apollo.convenience_types import Pathlike
+from apollo.formats.custom_types import Pathlike
 from apollo.submodels import TP
 from user.forward_models.inputs.parse_APOLLO_inputs import parse_APOLLO_input_file
 

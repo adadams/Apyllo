@@ -6,7 +6,7 @@ units = 'micrometers'
 [wavelength_bin_ends]
 units = 'micrometers'
 
-[spectrum]
+[flux]
 units = 'ergs / second / centimeters**3'
 
 [lower_errors]
@@ -15,5 +15,5 @@ units = 'ergs / second / centimeters**3'
 [upper_errors]
 units = 'ergs / second / centimeters**3'
 
-[spectrum_with_noise]
+[flux_with_noise]
 units = 'ergs / second / centimeters**3'

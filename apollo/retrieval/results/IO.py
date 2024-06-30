@@ -10,7 +10,7 @@ import tomllib
 from numpy.typing import NDArray
 from xarray import Dataset
 
-from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.formats.custom_types import Pathlike  # noqa: E402
 from apollo.retrieval.results.manipulate_results_datasets import (  # noqa: E402
     change_parameter_values_using_MLE_dataset,
 )

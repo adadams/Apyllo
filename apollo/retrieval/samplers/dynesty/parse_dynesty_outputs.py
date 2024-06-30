@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 import dynesty
-from apollo.convenience_types import Pathlike
+from apollo.formats.custom_types import Pathlike
 from apollo.retrieval.results.IO import SamplingResults
 
 

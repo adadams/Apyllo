@@ -37,22 +37,20 @@ _2M2236_DATA_FILE: Final = _2M2236_DATA_DIRECTORY / "2M2236_HK.dat"
 HK_BAND_NAMES: Final = ["H", "Ks"]
 
 HK_data = read_APOLLO_data_into_dataset(
-    _2M2236_DATA_FILE, band_names=HK_BAND_NAMES
+    _2M2236_DATA_FILE, band_names=HK_BAND_NAMES, data_name="2M2236 b"
 ).groupby("band")
-
-# %%
-HK_data
 # %%
 
 H_data = HK_data["H"]
 K_data = HK_data["Ks"]
-
+# %%
 H_dataspectrum = DataSpectrum(H_data)
 K_dataspectrum = DataSpectrum(K_data)
 # %%
-H_dataspectrum
+print(H_dataspectrum)
 # %%
 downsampled_H = H_dataspectrum.down_resolve(convolve_factor=4, new_resolution=500)
+print(downsampled_H)
 
 downsampled_K = K_dataspectrum.down_resolve(convolve_factor=4, new_resolution=500)
 # %%

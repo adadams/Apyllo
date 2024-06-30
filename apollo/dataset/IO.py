@@ -7,7 +7,7 @@ from pint import UnitRegistry
 from pint_xarray import setup_registry
 from xarray import Dataset, load_dataset
 
-from apollo.convenience_types import Pathlike
+from apollo.formats.custom_types import Pathlike
 from apollo.useful_internal_functions import compose
 from user_directories import USER_DIRECTORY
 
@@ -68,13 +68,17 @@ def pull_dataset_units_from_attrs(
 load_and_prep_dataset: Callable[[Dataset], Dataset] = compose(
     load_dataset,
     pull_dataset_units_from_attrs,
-    partial(check_and_replace_variable_names, SAFE_VARIABLE_NAMES_TO_UNSAFE),
+    partial(
+        check_and_replace_variable_names, variable_mapping=SAFE_VARIABLE_NAMES_TO_UNSAFE
+    ),
 )
 
 
 prep_dataset_for_saving: Callable[[Dataset], Dataset] = compose(
     put_dataset_units_in_attrs,
-    partial(check_and_replace_variable_names, UNSAFE_VARIABLE_NAMES_TO_SAFE),
+    partial(
+        check_and_replace_variable_names, variable_mapping=UNSAFE_VARIABLE_NAMES_TO_SAFE
+    ),
 )
 
 

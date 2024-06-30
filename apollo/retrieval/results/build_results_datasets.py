@@ -10,7 +10,6 @@ from pint import Unit
 # from tqdm import tqdm
 from xarray import DataArray, Dataset, apply_ufunc
 
-from apollo.convenience_types import Pathlike
 from apollo.dataset.accessors import (
     extract_dataset_subset_by_parameter_group,
     extract_free_parameters_from_dataset,
@@ -20,7 +19,8 @@ from apollo.dataset.builders import (
     make_dataset_variables_from_dict,
     organize_parameter_data_in_xarray,
 )
-from apollo.dataset.IO import save_dataset_with_units
+from apollo.dataset.IO import prep_and_save_dataset
+from apollo.formats.custom_types import Pathlike
 from apollo.make_forward_model_from_file import (
     evaluate_model_spectrum,
     prep_inputs_for_model,
@@ -42,14 +42,7 @@ class RunDatasetBlueprint(TypedDict):
     log_likelihoods: Sequence[float]
 
 
-def make_run_parameter_dataset(
-    parameter_names: Sequence[str],
-    parameter_values: Sequence[float],
-    parameter_units: Sequence[Unit | str],
-    parameter_default_string_formattings: Sequence[str],
-    parameter_group_names: Sequence[str],
-    log_likelihoods: Sequence[float],
-) -> Dataset:
+def make_run_parameter_dataset(run: RunDatasetBlueprint) -> Dataset:
     return Dataset(
         {
             parameter_name: organize_parameter_data_in_xarray(
@@ -57,16 +50,16 @@ def make_run_parameter_dataset(
                 print_name="",
                 value=parameter_value,
                 unit=parameter_unit,
-                coords={"log_likelihood": log_likelihoods},
+                coords={"log_likelihood": run.log_likelihoods},
                 string_formatter=string_formatter,
                 base_group=parameter_group_name,
             )
             for parameter_name, parameter_value, parameter_unit, string_formatter, parameter_group_name in zip(
-                parameter_names,
-                parameter_values,
-                parameter_units,
-                parameter_default_string_formattings,
-                parameter_group_names,
+                run.parameter_names,
+                run.parameter_values,
+                run.parameter_units,
+                run.parameter_default_string_formattings,
+                run.parameter_group_names,
             )
         }
     )
@@ -119,11 +112,11 @@ def evaluate_TP_functions_from_dataset(
             *TP_variable_list,
             input_core_dims=[[loop_dimension]] * number_of_variables,
             output_core_dims=[["log_pressure", loop_dimension]],
-            kwargs=dict(pressures=log_pressures),
+            kwargs={"pressures": log_pressures},
             keep_attrs=True,
         )
         .transpose(loop_dimension, "log_pressure")
-        .assign_coords(dict(log_pressure=log_pressures))
+        .assign_coords({"log_pressure": log_pressures})
         .rename("temperatures")
         .pint.quantify(output_temperature_unit)
     )
@@ -212,7 +205,7 @@ def compile_results_into_dataset(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
-        save_dataset_with_units(results_dataset, path=results_output_filepath)
+        prep_and_save_dataset(results_dataset, path=results_output_filepath)
 
     return results_dataset
 
@@ -260,9 +253,7 @@ def compile_contributions_into_dataset(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
-        save_dataset_with_units(
-            contributions_dataset, path=contributions_output_filepath
-        )
+        prep_and_save_dataset(contributions_dataset, path=contributions_output_filepath)
 
     return contributions_dataset
 
@@ -279,7 +270,7 @@ def prepare_MLE_dataset_from_results_dataset(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
-        save_dataset_with_units(MLE_parameters_dataset, path=MLE_output_filepath)
+        prep_and_save_dataset(MLE_parameters_dataset, path=MLE_output_filepath)
 
     return MLE_parameters_dataset
 
@@ -304,7 +295,7 @@ def prepare_TP_profile_dataset_from_results_dataset(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
-        save_dataset_with_units(TP_profile_dataset, path=TP_output_filepath)
+        prep_and_save_dataset(TP_profile_dataset, path=TP_output_filepath)
 
     return TP_dataset
 
@@ -335,6 +326,6 @@ def prepare_model_spectra_dataset_from_free_parameters_dataset(
             str(output_filepath_plus_prefix) + f".{output_file_suffix}"
         )
 
-        save_dataset_with_units(model_spectrum_dataset, path=model_spectra_filename)
+        prep_and_save_dataset(model_spectrum_dataset, path=model_spectra_filename)
 
     return model_spectrum_dataset

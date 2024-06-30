@@ -4,8 +4,8 @@ from typing import Any, TypedDict
 import numpy as np
 from matplotlib import pyplot as plt
 
-from apollo.convenience_types import Pathlike
 from apollo.dataset.IO import load_dataset_with_units
+from apollo.formats.custom_types import Pathlike
 from apollo.retrieval.results.IO import unpack_results_filepaths
 from apollo.retrieval.results.manipulate_results_datasets import (
     calculate_MLE,

@@ -1,11 +1,12 @@
+from collections.abc import Callable, Sequence
 from os import PathLike
-from typing import Any, Optional, Sequence, TypedDict
+from typing import Any, Optional, TypedDict
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from pint import UnitRegistry
 from pint_xarray import setup_registry
-from xarray import DataArray, Variable
+from xarray import Coordinates, DataArray, Dataset, Variable, apply_ufunc
 
 from user_directories import USER_DIRECTORY
 
@@ -16,6 +17,11 @@ class AttributeBlueprint(TypedDict):
     units: str
 
 
+class SpecifiedDataBlueprint(TypedDict):
+    data: NDArray[np.float_]
+    attrs: Optional[AttributeBlueprint]
+
+
 class VariableBlueprint(TypedDict):
     dims: str | Sequence[str]
     data: NDArray[np.float_]
@@ -23,20 +29,13 @@ class VariableBlueprint(TypedDict):
     encoding: Optional[dict[str, Any]]
 
 
-class DataArrayBlueprint(TypedDict):
-    data: NDArray[np.float_]
-    coords: Optional[dict[str, Sequence[float]]]
-    dims: str | Sequence[str]
-    name: str
-    attrs: Optional[AttributeBlueprint]
-
-
 class DatasetBlueprint(TypedDict):
     data_vars: dict[str, VariableBlueprint]
-    coords: Optional[dict[str, Sequence[float]]]
+    coords: Optional[dict[str, VariableBlueprint]]
     attrs: Optional[AttributeBlueprint]
 
 
+# NOTE KEEP
 def prep_unit_registry(
     additional_units_file: PathLike = ADDITIONAL_UNITS_FILE,
 ) -> UnitRegistry:
@@ -46,86 +45,82 @@ def prep_unit_registry(
     return unit_registry
 
 
-# Older function, assess whether it's needed in the face of other newer functions.
-def organize_parameter_data_in_xarray(
-    name: str,
-    value: float | int,
-    unit: str,
-    coords: dict[str, Sequence[float]] = None,
-    **extra_attributes,
-) -> DataArray:
-    dataarray_construction_kwargs: dict[str, Any] = {
-        "data": value,
-        "name": name,
-        "attrs": dict(**extra_attributes),
+def unit_safe_apply_ufunc(
+    function: Callable[[ArrayLike], ArrayLike],
+    *args: list[DataArray],
+    **kwargs: dict[str, Any],
+) -> Variable:
+    unit_safe_args: list[Variable | DataArray] = [
+        variable.pint.dequantify() for variable in args
+    ]
+
+    applied_function: list[DataArray] = apply_ufunc(function, *unit_safe_args, **kwargs)
+
+    return applied_function.pint.quantify()
+
+
+def format_array_with_specifications(
+    data_array: NDArray[np.float_],
+    data_format: dict[str, AttributeBlueprint],
+) -> dict[str, SpecifiedDataBlueprint]:
+    if len(data_format) != len(data_array):
+        raise ValueError(
+            f"Data format length ({len(data_format)}) does not match "
+            f"the number of data entries ({len(data_array)})."
+        )
+
+    return {
+        variable_name: {"data": variable_data, "attrs": variable_attributes}
+        for (variable_name, variable_attributes), variable_data in zip(
+            data_format.items(), data_array
+        )
     }
 
-    if coords is not None:
-        dataarray_construction_kwargs["coords"] = coords
 
-    unit_registry: UnitRegistry = prep_unit_registry()
-    data_array: DataArray = DataArray(**dataarray_construction_kwargs).pint.quantify(
-        unit, unit_registry
+def read_specified_data_into_variable(
+    specified_data: SpecifiedDataBlueprint,
+    dimension_names: str | Sequence[str],
+    **encoding_kwargs,
+) -> dict[str, Variable]:
+    dimension_names: Sequence[str] = (
+        [dimension_names] if isinstance(dimension_names, str) else dimension_names
     )
 
-    return data_array
-
-
-# Just a wrapper for constructing xarray.Variable objects.
-def read_data_into_xarray_variable(
-    data: NDArray[np.float_],
-    dimension_names: str | Sequence[str],
-    units: str | Sequence[str],
-    name: Optional[str] = None,
-    **encoding_kwargs,
-) -> Variable:
-    attributes: AttributeBlueprint = {"units": units, "name": name}
-
-    assert data.ndim == len(
+    assert specified_data["data"].ndim == len(
         dimension_names
     ), "Data must have same number of dimensions as dimension names."
 
-    return Variable(
-        data=data, dims=dimension_names, attrs=attributes, **encoding_kwargs
-    )
+    return Variable(**specified_data, dims=dimension_names, **encoding_kwargs)
 
 
-def add_dimension_to_xarray_variable(
-    variable: Variable, coordinates: Variable | Sequence[Variable]
+def add_coordinates_to_individual_variable(
+    variable: Variable,
+    coordinates: Coordinates,
+    variable_name: str = None,
+    attach_units: bool = True,
 ) -> DataArray:
-    dimension_names: tuple[str] = (
-        coordinates.attrs["name"]
-        if isinstance(coordinates, Variable)
-        else [coordinate.attrs["name"] for coordinate in coordinates]
-    )
+    dimension_names: list[str] = list(coordinates.keys())
+
     assert all(
         [dimension_name in variable.dims for dimension_name in dimension_names]
     ), "There are dimensions specified in the coordinates that are not in the data."
 
-    coordinates_as_dictionary: dict[str, Variable] = {
-        dimension_name: coordinate
-        for dimension_name, coordinate in zip(dimension_names, coordinates)
-    }
+    variable_with_coordinates: DataArray = DataArray(
+        **variable.to_dict(), coords=coordinates, name=variable_name
+    )
 
-    return DataArray(**variable.to_dict(), coords=coordinates_as_dictionary)
+    return (
+        variable_with_coordinates.pint.quantify()
+        if attach_units
+        else variable_with_coordinates
+    )
 
 
-def make_dataset_variables_from_dict(
-    variable_dictionary: dict[str, NDArray[np.float_]],
-    dimension_names: Sequence[str],
-    attributes: dict[str, AttributeBlueprint] = None,
-) -> dict[str, DataArrayBlueprint]:
-    if attributes is None:
-        attributes = {variable_name: {} for variable_name in variable_dictionary}
-
-    return {
-        variable_name: {
-            "dims": dimension_names,
-            "data": variable_values,
-            "attrs": attribute_values,
-        }
-        for (variable_name, variable_values), (
-            variable_name,
-            attribute_values,
-        ) in zip(variable_dictionary.items(), attributes.items())
-    }
+def make_dataset_from_variables(
+    data_variables: dict[str, Variable],
+    coordinates: Coordinates,
+    **dataset_attributes,
+) -> Dataset:
+    return Dataset(
+        data_vars=data_variables, coords=coordinates, attrs=dataset_attributes
+    )

@@ -7,9 +7,9 @@ from matplotlib import pyplot as plt
 from numpy.typing import NDArray
 from yaml import safe_load
 
-from apollo.convenience_types import Pathlike
 from apollo.dataset.accessors import change_units
 from apollo.dataset.IO import load_dataset_with_units
+from apollo.formats.custom_types import Pathlike
 from apollo.generate_cornerplot import generate_cornerplot
 from apollo.retrieval.results.IO import unpack_results_filepaths
 from apollo.retrieval.results.manipulate_results_datasets import calculate_MLE

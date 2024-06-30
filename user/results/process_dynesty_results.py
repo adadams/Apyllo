@@ -1,4 +1,5 @@
 import sys
+from dataclasses import dataclass
 from os.path import abspath
 from pathlib import Path
 from typing import Any
@@ -10,7 +11,7 @@ APOLLO_DIRECTORY = abspath(
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.formats.custom_types import Pathlike  # noqa: E402
 from apollo.retrieval.results.build_results_datasets import (  # noqa: E402
     compile_contributions_into_dataset,
     compile_results_into_dataset,
@@ -31,6 +32,15 @@ from apollo.submodels.TP_models.get_TP_function import (  # noqa: E402
 from user_directories import USER_DIRECTORIES  # noqa: E402
 
 RESULTS_DIRECTORY: Pathlike = USER_DIRECTORIES["results"]
+
+
+@dataclass
+class RetrievalResults:
+    parameter_samples: Dataset
+    MLE_parameters: Dataset
+    contributions: Dataset
+    TP_profiles: Dataset
+    model_spectra: Dataset
 
 
 def process_dynesty_run(
@@ -83,18 +93,18 @@ def process_dynesty_run(
         output_filepath_plus_prefix,
     )
 
-    return {
-        "samples": results_dataset,
-        "MLE": MLE_dataset,
-        "contributions": contributions_dataset,
-        "TP_profiles": TP_profile_dataset,
-        "model_spectra": model_spectra_dataset,
-    }
+    return RetrievalResults(
+        parameter_samples=results_dataset,
+        MLE_parameters=MLE_dataset,
+        contributions=contributions_dataset,
+        TP_profiles=TP_profile_dataset,
+        model_spectra=model_spectra_dataset,
+    )
 
 
 def process_dynesty_runs(
     run_filepath_directories: dict[str, dict[str, Pathlike]],
-) -> dict[str, dict[str, Dataset]]:
+) -> dict[str, RetrievalResults]:
     return {
         run_name: process_dynesty_run(run_filepath_directory)
         for run_name, run_filepath_directory in run_filepath_directories.items()

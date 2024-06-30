@@ -1,16 +1,22 @@
 from collections import ChainMap
+from collections.abc import Callable
 from functools import reduce
-from typing import Any, Callable
+from inspect import Signature
+from typing import Any
 
 import numpy as np
 import yaml
 from numpy.typing import NDArray
 
-from apollo.convenience_types import Pathlike
+from apollo.formats.custom_types import Pathlike
 
 
 def compose(*functions):
     return reduce(lambda f, g: lambda x: g(f(x)), functions)
+
+
+def count_number_of_arguments(function: Callable) -> int:
+    return len(Signature.from_callable(function).parameters)
 
 
 def load_multi_yaml_file_into_dict(filepath: Pathlike):

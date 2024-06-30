@@ -11,8 +11,8 @@ APOLLO_DIRECTORY = abspath(
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.convenience_types import Pathlike  # noqa: E402
 from apollo.dataset.IO import load_dataset_with_units  # noqa: E402
+from apollo.formats.custom_types import Pathlike  # noqa: E402
 from apollo.retrieval.results.IO import unpack_results_filepaths  # noqa: E402
 from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
     read_APOLLO_data_into_dataset,  # noqa: E402

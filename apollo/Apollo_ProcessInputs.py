@@ -19,7 +19,7 @@ from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
     ModelParameters,
     OpacityParameters,
 )
-from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.formats.custom_types import Pathlike  # noqa: E402
 from apollo.planet import CPlanetBlueprint  # noqa: E402
 from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
     find_band_limits_from_wavelength_bins,  # noqa: E402

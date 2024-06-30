@@ -1,8 +1,6 @@
-from abc import abstractmethod
 from typing import Protocol
 
-import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike
 
 
 class Spectral(Protocol):
@@ -10,19 +8,13 @@ class Spectral(Protocol):
     Also has a corresponding spectrum that can be convolved and down-sampled in
     resolution."""
 
-    wavelength_bin_starts: NDArray[np.float_]
-    wavelength_bin_ends: NDArray[np.float_]
-    wavelengths: NDArray[np.float_]
-    spectrum: NDArray[np.float_]
+    wavelength_bin_starts: ArrayLike
+    wavelength_bin_ends: ArrayLike
+    wavelengths: ArrayLike
+    flux: ArrayLike
 
-    @abstractmethod
-    def convolve(self, *args, **kwargs) -> NDArray[np.float_]:
-        raise NotImplementedError
+    def convolve(self, *args, **kwargs) -> ArrayLike: ...
 
-    @abstractmethod
-    def down_bin(self, *args, **kwargs) -> NDArray[np.float_]:
-        raise NotImplementedError
+    def down_bin(self, *args, **kwargs) -> ArrayLike: ...
 
-    @abstractmethod
-    def down_resolve(self, *args, **kwargs) -> NDArray[np.float_]:
-        raise NotImplementedError
+    def down_resolve(self, *args, **kwargs) -> ArrayLike: ...

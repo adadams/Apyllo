@@ -16,7 +16,7 @@ APOLLO_DIRECTORY = abspath(
 sys.path.append(APOLLO_DIRECTORY)
 
 
-class MultiFigureBlueprint(TypedDict):
+class MultiFigureBlueprintButt(TypedDict):
     contributions: dict[str, NDArray[np.float_]]
     list_of_band_boundaries: Sequence[Sequence[float]]
     band_breaks: Sequence[Sequence[float]]
@@ -55,6 +55,49 @@ class MultiFigure:
     figure: plt.Figure
     gridspec: GridSpec
     axis_array: NDArray[np.object_]
+
+
+class GridSpecBlueprint(TypedDict):
+    nrows: int
+    ncols: int
+    height_ratios: Sequence[float]
+    width_ratios: Sequence[float]
+
+
+@dataclass
+class MultiFigureBlueprint:
+    figure_dimensions: tuple[int | float, int | float]
+    number_of_rows: int
+    number_of_columns: int
+    height_ratios: Sequence[float]
+    width_ratios: Sequence[float]
+
+    @property
+    def gridspec_kwargs(self) -> GridSpecBlueprint:
+        return {
+            "nrows": self.number_of_rows,
+            "ncols": self.number_of_columns,
+            "height_ratios": self.height_ratios,
+            "width_ratios": self.width_ratios,
+        }
+
+    @property
+    def figure_kwargs(self) -> dict[str, int | float]:
+        return {"figsize": self.figure_dimensions}
+
+
+def create_Arthurs_multi_figure(
+    number_of_contributions: int,
+    number_of_bands: int,
+    wavelength_ranges: Sequence[float],
+) -> MultiFigureBlueprint:
+    return MultiFigureBlueprint(
+        figure_dimensions=(40, 30),
+        number_of_rows=number_of_contributions + 2,
+        number_of_columns=number_of_bands,
+        height_ratios=[4, 2] + ([3] * number_of_contributions),
+        width_ratios=wavelength_ranges,
+    )
 
 
 def setup_multi_figure(

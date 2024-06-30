@@ -15,7 +15,7 @@ APOLLO_DIRECTORY = abspath(
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.convenience_types import Pathlike  # noqa: E402
+from apollo.formats.custom_types import Pathlike  # noqa: E402
 from apollo.planet import RadiusInputs  # noqa: E402
 from apollo.useful_internal_functions import strtobool  # noqa: E402
 
