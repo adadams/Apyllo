@@ -4,7 +4,7 @@ from typing import Any, Optional, TypedDict
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from pint import UnitRegistry
+from pint import Unit, UnitRegistry
 from pint_xarray import setup_registry
 from xarray import Coordinates, DataArray, Dataset, Variable, apply_ufunc
 
@@ -35,7 +35,6 @@ class DatasetBlueprint(TypedDict):
     attrs: Optional[AttributeBlueprint]
 
 
-# NOTE KEEP
 def prep_unit_registry(
     additional_units_file: PathLike = ADDITIONAL_UNITS_FILE,
 ) -> UnitRegistry:
@@ -48,15 +47,41 @@ def prep_unit_registry(
 def unit_safe_apply_ufunc(
     function: Callable[[ArrayLike], ArrayLike],
     *args: list[DataArray],
+    output_units: dict[str, str | Unit],
     **kwargs: dict[str, Any],
-) -> Variable:
+) -> DataArray | tuple[DataArray]:
     unit_safe_args: list[Variable | DataArray] = [
         variable.pint.dequantify() for variable in args
     ]
 
-    applied_function: list[DataArray] = apply_ufunc(function, *unit_safe_args, **kwargs)
+    applied_function_output: DataArray | tuple[DataArray] = apply_ufunc(
+        function, *unit_safe_args, keep_attrs=False, **kwargs
+    )
 
-    return applied_function.pint.quantify()
+    if isinstance(applied_function_output, tuple):
+        for variable, (output_name, output_unit) in zip(
+            applied_function_output, output_units.items()
+        ):
+            variable.rename(output_name)
+            variable.attrs["units"] = output_unit
+
+        return tuple(variable.pint.quantify() for variable in applied_function_output)
+
+    elif isinstance(applied_function_output, DataArray):
+        output_name, output_unit = next(iter(output_units.items()))
+
+        applied_function_output.rename(output_name)
+        applied_function_output.attrs["units"] = output_unit
+
+        return applied_function_output.pint.quantify()
+
+    else:
+        raise ValueError(
+            "Applied function did not return a DataArray or tuple of DataArrays"
+        )
+
+
+def apply_type_preserving_function(): ...
 
 
 def format_array_with_specifications(

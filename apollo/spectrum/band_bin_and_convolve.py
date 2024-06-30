@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Final
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -9,7 +10,9 @@ def get_wavelengths_from_wavelength_bins(wavelength_bin_starts, wavelength_bin_e
     return (wavelength_bin_starts + wavelength_bin_ends) / 2
 
 
-def get_wavelength_bins_from_wavelengths(wavelengths):
+def get_wavelength_bins_from_wavelengths(
+    wavelengths: ArrayLike,
+) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
     half_wavelength_differences = np.diff(wavelengths) / 2
 
     wavelength_bin_starts = wavelengths - np.stack(
@@ -28,7 +31,12 @@ def find_band_bounding_indices(
         ~np.isin(wavelength_bin_ends, wavelength_bin_starts)
     ).squeeze()
 
-    return (0, *(indices_where_bands_end + 1))
+    if indices_where_bands_end.ndim == 0:
+        # No bands found, the whole array is a single band
+        return (0, indices_where_bands_end + 1)
+
+    else:
+        return (0, *(indices_where_bands_end + 1))
 
 
 def find_band_limits_from_wavelength_bins(
@@ -71,110 +79,91 @@ class BinIndices:
     fbinhi: NDArray[np.float_]
 
 
-def GetBinIndices(original_number_of_wavelengths: int, binw: int | float):
-    blen = (int)(original_number_of_wavelengths / binw)
-    ibinlo = np.zeros(blen)
-    ibinhi = np.zeros(blen)
-    fbinlo = np.zeros(blen)
-    fbinhi = np.zeros(blen)
+def GetBinIndices(original_number_of_wavelengths: int, binw: int | float) -> BinIndices:
+    blen: int = int(original_number_of_wavelengths / binw)
 
-    for i in range(0, blen):
-        ibinlo[i] = i * binw
-        ibinhi[i] = (i + 1) * binw
-        fbinlo[i] = np.modf(ibinlo[i])[0]
-        fbinhi[i] = np.modf(ibinhi[i])[0]
-        if fbinlo[i] == 0.0:
-            ibinlo[i] = ibinlo[i] + 0.000_001
-            fbinlo[i] = 0.000_001
-        if fbinhi[i] == 0.0:
-            ibinhi[i] = ibinhi[i] + 0.000_001
-            fbinhi[i] = 0.000_001
+    ibinlo: NDArray[np.float_] = np.arange(blen) * binw
+    ibinhi: NDArray[np.float_] = (np.arange(blen) + 1) * binw
+
+    fbinlo: NDArray[np.float_] = np.modf(ibinlo)[0]
+    fbinhi: NDArray[np.float_] = np.modf(ibinhi)[0]
+
+    SMALL_NUDGE: Final[float] = 1e-6
+    ibinlo[fbinlo == 0.0] = ibinlo[fbinlo == 0.0] + SMALL_NUDGE
+    ibinhi[fbinhi == 0.0] = ibinhi[fbinhi == 0.0] + SMALL_NUDGE
+    fbinlo[fbinlo == 0.0] = SMALL_NUDGE
+    fbinhi[fbinhi == 0.0] = SMALL_NUDGE
 
     return BinIndices(ibinlo, ibinhi, fbinlo, fbinhi)
 
 
 def BinWavelengths(
-    wavelo: NDArray[np.float_],
-    wavehi: NDArray[np.float_],
-    bin_indices: BinIndices,
-    binw: int | float,
-) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+    wavelo: ArrayLike, wavehi: ArrayLike, bin_indices: BinIndices
+) -> WavelengthBins:
     if len(wavelo) != len(wavehi):
         raise ValueError(
             "Lower and upper wavelength bin arrays must be the same length"
         )
 
-    blen = (int)(len(wavelo) / binw)
-    print(f"{len(wavelo)=}")
-    print(f"{len(bin_indices.ibinhi)=}")
-    print(f"{binw=}")
-    print(f"{blen=}")
-    binlo = np.zeros(blen)
-    binhi = np.zeros(blen)
+    lower_edge_indices: NDArray[np.int_] = np.floor(bin_indices.ibinlo).astype(int)
+    fractional_lower_bin: NDArray[np.float_] = np.where(
+        lower_edge_indices != len(wavelo) - 1, bin_indices.fbinlo, 0
+    )
 
-    ibinlo = bin_indices.ibinlo
-    ibinhi = bin_indices.ibinhi
-    fbinlo = bin_indices.fbinlo
-    fbinhi = bin_indices.fbinhi
+    binlo: NDArray[np.float_] = (1 - bin_indices.fbinlo) * np.take(
+        wavelo, lower_edge_indices
+    ) + fractional_lower_bin * np.take(wavelo, lower_edge_indices + 1)
 
-    if len(wavelo) != len(wavehi):
-        raise ValueError(
-            "Lower and upper wavelength bin arrays must be the same length"
-        )
+    upper_edge_indices: NDArray[np.int_] = np.floor(bin_indices.ibinhi).astype(int)
+    fractional_upper_bin: NDArray[np.float_] = np.where(
+        upper_edge_indices != len(wavelo) - 1, bin_indices.fbinhi, 0
+    )
 
-    for i in range(0, len(ibinhi)):
-        if (int)(np.floor(ibinlo[i])) == (int)(len(wavelo) - 1):
-            binlo[i] = (1.0 - fbinlo[i]) * wavelo[(int)(np.floor(ibinlo[i]))]
-        else:
-            binlo[i] = (1.0 - fbinlo[i]) * wavelo[(int)(np.floor(ibinlo[i]))] + fbinlo[
-                i
-            ] * wavelo[(int)(np.floor(ibinlo[i])) + 1]
-
-        if (int)(np.floor(ibinhi[i])) == len(wavelo):
-            binhi[i] = (1.0 - fbinhi[i]) * wavehi[(int)(np.floor(ibinhi[i])) - 1]
-        else:
-            binhi[i] = (1.0 - fbinhi[i]) * wavehi[
-                (int)(np.floor(ibinhi[i])) - 1
-            ] + fbinhi[i] * wavehi[(int)(np.floor(ibinhi[i]))]
+    binhi: NDArray[np.float_] = (1 - bin_indices.fbinhi) * np.take(
+        wavehi, upper_edge_indices - 1
+    ) + fractional_upper_bin * np.take(wavehi, upper_edge_indices)
 
     return WavelengthBins(wavelength_bin_starts=binlo, wavelength_bin_ends=binhi)
 
 
 def BinFlux(flux: ArrayLike, binw: int | float, bin_indices: BinIndices) -> ArrayLike:
-    blen = (int)(len(flux) / binw)
-    binflux = np.zeros(blen)
+    int_upper_ibinlo: NDArray[np.int_] = np.ceil(bin_indices.ibinlo).astype(int)
+    int_lower_ibinhi: NDArray[np.int_] = np.floor(bin_indices.ibinhi).astype(int)
 
-    ibinlo = bin_indices.ibinlo
-    ibinhi = bin_indices.ibinhi
-    fbinlo = bin_indices.fbinlo
-    fbinhi = bin_indices.fbinhi
+    lower_edge_indices: NDArray[np.int_] = np.floor(bin_indices.ibinlo).astype(int)
+    upper_edge_indices: NDArray[np.int_] = int_lower_ibinhi
 
-    for i in range(0, len(ibinhi)):
-        binflux[i] = np.sum(
-            flux[(int)(np.ceil(ibinlo[i])) : (int)(np.floor(ibinhi[i]))]
-        )
+    binning_slices: NDArray[np.object_] = np.array(
+        [slice(start, stop) for start, stop in zip(int_upper_ibinlo, int_lower_ibinhi)]
+    )
 
-        binflux[i] = binflux[i] + (1.0 - fbinlo[i]) * flux[(int)(np.floor(ibinlo[i]))]
+    binflux_without_edges: NDArray[np.float_] = np.array(
+        [np.sum(flux[slice]) for slice in binning_slices]
+    )
 
-        if (int)(np.floor(ibinhi[i])) >= len(flux):
-            binflux[i] = binflux[i]
-        else:
-            binflux[i] = binflux[i] + fbinhi[i] * flux[(int)(np.floor(ibinhi[i]))]
+    fractional_lower_bin: NDArray[np.float_] = 1 - bin_indices.fbinlo
+    binflux_lower_edge: NDArray[np.float_] = fractional_lower_bin * np.take(
+        flux, lower_edge_indices
+    )
 
-        binflux[i] = binflux[i] / binw
+    fractional_upper_bin: NDArray[np.float_] = np.where(
+        int_lower_ibinhi < len(flux), bin_indices.fbinhi, 0
+    )
+    binflux_upper_edge: NDArray[np.float_] = fractional_upper_bin * np.take(
+        flux, upper_edge_indices
+    )
 
-    return binflux
+    binflux = binflux_lower_edge + binflux_without_edges + binflux_upper_edge
+
+    return binflux / binw
 
 
 def BinFluxErrors(
     flux_errors: ArrayLike, binw: int | float, bin_indices: BinIndices
 ) -> ArrayLike:
     binned_errors: ArrayLike = BinFlux(flux_errors, binw, bin_indices)
-    print(f"{binned_errors=}")
 
-    binned_errors_assuming_white_noise: ArrayLike = np.divide(
-        binned_errors, np.sqrt(binw - 1)
-    )
+    binned_errors_assuming_white_noise: ArrayLike = binned_errors / np.sqrt(binw - 1)
     return binned_errors_assuming_white_noise
 
 
@@ -188,21 +177,28 @@ def BinSpec(wavelo, wavehi, flux, binw):
 
     binflux: NDArray[np.float_] = BinFlux(flux, binw, bin_indices)
 
-    return *binned_wavelengths, binflux
+    return (
+        binned_wavelengths.wavelength_bin_starts,
+        binned_wavelengths.wavelength_bin_ends,
+        binflux,
+    )
 
 
 def BinSpecwithErrors(wavelo, wavehi, flux, err, binw):
     number_of_wavelengths: int = len(wavelo)
     bin_indices: BinIndices = GetBinIndices(number_of_wavelengths, binw)
 
-    binned_wavelengths: WavelengthBins = BinWavelengths(
-        wavelo, wavehi, bin_indices, binw
-    )
+    binned_wavelengths: WavelengthBins = BinWavelengths(wavelo, wavehi, bin_indices)
 
     binflux: ArrayLike = BinFlux(flux, binw, bin_indices)
     binerr: ArrayLike = BinFluxErrors(err, binw, bin_indices)
 
-    return *binned_wavelengths, binflux, binerr
+    return (
+        binned_wavelengths.wavelength_bin_starts,
+        binned_wavelengths.wavelength_bin_ends,
+        binflux,
+        binerr,
+    )
 
 
 def ConvSpec(flux: ArrayLike, bin_width: int | float) -> ArrayLike:

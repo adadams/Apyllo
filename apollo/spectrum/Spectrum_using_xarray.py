@@ -26,9 +26,7 @@ class Spectrum:
         spectrum_print_line: str = (
             f"Spectrum for {self.title}, band(s) {self.bands} {self._data}"
         )
-        resolution_print_line: str = (
-            f"Pixel resolution: {self.mean_resolution.pint.magnitude:.2f}"
-        )
+        resolution_print_line: str = f"Pixel resolution: {self.mean_resolution:.2f}"
 
         lines: list[str] = [spectrum_print_line, resolution_print_line]
 
@@ -59,14 +57,14 @@ class Spectrum:
         return self._data.get("flux")
 
     @property
-    def pixel_resolution(self) -> float:
+    def pixel_resolution(self) -> DataArray:
         return self.wavelengths / (
             self.wavelength_bin_ends - self.wavelength_bin_starts
         )
 
     @property
     def mean_resolution(self, pixels_per_resolution_element=1) -> float:
-        return np.mean(self.pixel_resolution / pixels_per_resolution_element)
+        return np.mean(self.pixel_resolution.values / pixels_per_resolution_element)
 
     def units_for(self, variable_name: str) -> str:
         variable: DataArray = self._data.get(variable_name)

@@ -26,11 +26,9 @@ class DataSpectrum(Spectrum):
         spectrum_print_line: str = (
             f"Spectrum for {self.title}, band(s) {self.bands} {self._data}"
         )
-        resolution_print_line: str = (
-            f"Pixel resolution: {self.mean_resolution.pint.magnitude:.2f}"
-        )
+        resolution_print_line: str = f"Pixel resolution: {self.mean_resolution:.2f}"
         signal_to_noise_print_line: str = (
-            f"S/N per pixel: {self.mean_signal_to_noise.pint.magnitude:.2f}"
+            f"S/N per pixel: {self.mean_signal_to_noise:.2f}"
         )
 
         lines: list[str] = [
@@ -51,11 +49,13 @@ class DataSpectrum(Spectrum):
 
     @property
     def errors(self):
-        return (self.lower_errors + self.upper_errors) / 2
+        errors: DataArray = (self.lower_errors + self.upper_errors) / 2
+
+        return errors.rename("errors")
 
     @property
     def mean_signal_to_noise(self) -> float:
-        return np.mean(self._data.flux / self.errors)
+        return np.mean((self.flux / self.errors).values)
 
     # NOTE: something like T = TypeVar("T", bound=ArrayLike) ?
     def convolve(self, convolve_factor: float | int) -> tuple[DataArray, DataArray]:
@@ -65,17 +65,19 @@ class DataSpectrum(Spectrum):
 
         convolved_flux: DataArray = unit_safe_apply_ufunc(
             convolving_function,
-            self.flux.pint.dequantify(),
+            self.flux,
+            output_units={"flux": self.flux.pint.units},
             input_core_dims=[["wavelength"]],
             output_core_dims=[["wavelength"]],
-        ).pint.quantify()
+        )
 
         convolved_errors: DataArray = unit_safe_apply_ufunc(
             convolving_function,
-            self.errors.pint.dequantify(),
+            self.errors,
+            output_units={"errors": self.errors.pint.units},
             input_core_dims=[["wavelength"]],
             output_core_dims=[["wavelength"]],
-        ).pint.quantify()
+        )
 
         return convolved_flux, convolved_errors
 
@@ -105,6 +107,12 @@ class DataSpectrum(Spectrum):
             self.wavelength_bin_ends,
             flux,
             errors,
+            output_units={
+                "wavelength_bin_starts": self.wavelength_bin_starts.pint.units,
+                "wavelength_bin_ends": self.wavelength_bin_ends.pint.units,
+                "flux": self.flux.pint.units,
+                "errors": self.errors.pint.units,
+            },
             input_core_dims=[["wavelength"]] * number_of_binning_function_arguments,
             output_core_dims=[["wavelength"]] * number_of_binning_function_outputs,
             exclude_dims={"wavelength"},
@@ -119,6 +127,7 @@ class DataSpectrum(Spectrum):
             get_wavelengths_from_wavelength_bins,
             binned_WBS,
             binned_WBE,
+            output_units={"wavelength": self.wavelengths.pint.units},
             input_core_dims=[["wavelength"]] * number_of_wavelength_arguments,
             output_core_dims=[["wavelength"]] * number_of_wavelength_outputs,
         )
@@ -139,19 +148,21 @@ class DataSpectrum(Spectrum):
 
         binned_coordinates: Coordinates = Coordinates(binned_coordinate_dictionary)
 
+        binned_data_variables: dict[str, DataArray] = {
+            "wavelength_bin_starts": binned_WBS,
+            "wavelength_bin_ends": binned_WBE,
+            "flux": binned_flux,
+            "lower_errors": binned_errors,
+            "upper_errors": binned_errors,
+        }
+
         binned_dataset: Dataset = Dataset(
-            data_vars={
-                "wavelength_bin_starts": binned_WBS,
-                "wavelength_bin_ends": binned_WBE,
-                "flux": binned_flux,
-                "lower_errors": binned_errors,
-                "upper_errors": binned_errors,
-            },
+            data_vars=binned_data_variables,
             coords=binned_coordinates,
             attrs={"title": new_title},
         )
 
-        return Spectrum(binned_dataset)
+        return DataSpectrum(binned_dataset)
 
     def down_resolve(self, convolve_factor: int, new_resolution: float | int) -> Self:
         return self.down_bin(new_resolution, *self.convolve(convolve_factor))
