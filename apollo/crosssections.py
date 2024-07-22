@@ -8,7 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 from xarray import DataArray, Dataset
 
-from apollo.formats.custom_types import Pathlike
+from custom_types import Pathlike
 
 
 @dataclass(slots=True)

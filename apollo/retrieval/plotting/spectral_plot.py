@@ -15,24 +15,27 @@ def generate_spectrum_plot_by_band(
     error: Sequence[float],
     model_title: str,
     plot_color: str,
-    errorbar_kwargs: dict[Any] = dict(
-        color="#444444", fmt="x", linewidth=0, elinewidth=2, alpha=1, zorder=-3
-    ),
-    spectrum_kwargs: dict[Any] = dict(
-        # color=plot_color,
-        # label=model_title,
-        linewidth=3,
-        linestyle="solid",
-        alpha=1,
-        zorder=2,  # 2-j
-    ),
+    errorbar_kwargs: dict[str, Any] = {
+        "color": "#444444",
+        "fmt": "x",
+        "linewidth": 0,
+        "elinewidth": 2,
+        "alpha": 1,
+        "zorder": -3,
+    },
+    spectrum_kwargs: dict[str, Any] = {
+        "linewidth": 3,
+        "linestyle": "solid",
+        "alpha": 1,
+        "zorder": 2,  # 2-j
+    },
 ) -> plt.Axes:
     wavelength_min: float = np.min(wavelengths)
     wavelength_max: float = np.max(wavelengths)
     wavelength_range: float = wavelength_max - wavelength_min
 
-    xmin = wavelength_min - PADDING * wavelength_range
-    xmax = wavelength_max + PADDING * wavelength_range
+    xmin: float = wavelength_min - PADDING * wavelength_range
+    xmax: float = wavelength_max + PADDING * wavelength_range
     spectrum_axis.set_xlim([xmin, xmax])
 
     spectrum_axis.errorbar(wavelengths, data, error, **errorbar_kwargs)
@@ -49,11 +52,19 @@ def generate_spectrum_plot_by_band(
 
 
 def plot_alkali_lines_on_spectrum(spectrum_axis: plt.Axes) -> plt.Axes:
-    alkali_line_positions = [1.139, 1.141, 1.169, 1.177, 1.244, 1.253, 1.268]
+    ALKALI_LINE_POSITIONS: Final[tuple[float]] = tuple(
+        1.139,
+        1.141,
+        1.169,
+        1.177,
+        1.244,
+        1.253,
+        1.268,
+    )
 
     wavelength_min, wavelength_max = spectrum_axis.get_xlim()
     assert all(
-        wavelength_min <= alkali_line_positions <= wavelength_max
+        wavelength_min <= ALKALI_LINE_POSITIONS <= wavelength_max
     ), "At least one of the alkali lines may fall outside your plotted wavelength range."
 
     [
@@ -64,7 +75,7 @@ def plot_alkali_lines_on_spectrum(spectrum_axis: plt.Axes) -> plt.Axes:
             zorder=-10,
             color="#888888",
         )
-        for line_position_in_microns in alkali_line_positions
+        for line_position_in_microns in ALKALI_LINE_POSITIONS
     ]
 
     y_text = spectrum_axis.get_ylim()[0] + 0.1 * np.diff(spectrum_axis.get_ylim())

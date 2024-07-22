@@ -36,7 +36,9 @@ def interpolation(*input_Ts, num_layers_final=vres, P_min=minP, P_max=maxP):
     input_Ps = np.linspace(P_max, P_min, num=num_layers_initial)
     output_Ps = np.linspace(P_max, P_min, num=num_layers_final)
 
-    interpolation_level = "cubic" if num_layers_final > 4 else "linear"
+    interpolation_level: str = (
+        "cubic" if (num_layers_final > 4 or num_layers_final >= 13) else "linear"
+    )
 
     output_Ts = (np.interp1d(input_Ps, input_Ts, kind=interpolation_level))(output_Ps)
     output_Ts = np.where(output_Ts < minT, minT, output_Ts)

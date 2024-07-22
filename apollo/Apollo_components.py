@@ -24,7 +24,7 @@ from apollo.planet import (  # noqa: E402
 from apollo.src.ApolloFunctions import BinModel, ConvSpec, NormSpec  # noqa: E402
 
 # from apollo.src.wrapPlanet import PyPlanet as PlanetCCore  # noqa: E402
-from apollo.useful_internal_functions import strtobool  # noqa: E402
+from useful_internal_functions import strtobool  # noqa: E402
 from user.cloud_models import cloud_models  # noqa: E402
 
 # from user.priors import evaluate_default_priors, priors  # noqa: E402
@@ -466,7 +466,7 @@ def ReadInputsfromFile(
         "mode": mode,
         "modestr": modestr,
         "parallel": parallel,
-        "datain": Path(APOLLO_DIRECTORY) / datain,
+        "datain": str(Path(APOLLO_DIRECTORY) / datain),
         # "polyfit": polyfit, # Not in ProcessInputs
         "sampler": sampler,
         # "samples_file": samples_file, # Not in ProcessInputs

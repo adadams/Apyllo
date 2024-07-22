@@ -2,7 +2,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from os.path import abspath
-from typing import Any, Optional
+from typing import Any, Final, Optional
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -18,14 +18,17 @@ from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
     DataParameters,
     ModelParameters,
     OpacityParameters,
+    ParameterValue,
 )
-from apollo.formats.custom_types import Pathlike  # noqa: E402
 from apollo.planet import CPlanetBlueprint  # noqa: E402
 from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
     find_band_limits_from_wavelength_bins,  # noqa: E402
 )
 from apollo.src.wrapPlanet import PyPlanet  # noqa: E402
+from custom_types import Pathlike  # noqa: E402
 from user.TP_models import TP_models  # noqa: E402
+
+PARSEC_IN_REARTH: Final[float] = 4.838e9
 
 
 def set_default_output_filename(
@@ -92,14 +95,8 @@ override_parameters: dict[str, Any] = {
 
 
 @dataclass
-class Size:
-    case_name: str
-    parameter_value: float
-
-
-@dataclass
-class RetrievalParameter:
-    value: float
+class RetrievalParameter(slots=True):
+    value: ParameterValue
     guess: float
     mu: float
     sigma: float
@@ -109,7 +106,7 @@ class RetrievalParameter:
 def convert_area_ratio_to_radius(
     area_ratio: float | ArrayLike[np.float_], dist: float
 ) -> float:
-    return 10**area_ratio * dist**2 * 4.838e9**2
+    return 10**area_ratio * dist**2 * PARSEC_IN_REARTH**2
 
 
 def convert_area_parameter_to_radius_parameter(
@@ -427,46 +424,12 @@ def get_model_spectral_bin_indices(
     return ModelSpectrumBinIndices(ibinlo, ibinhi, delibinlo, delibinhi)
 
 
-@dataclass
-class MolecularParameters:
-    species: list[str]
-    mmw: NDArray[np.float_]
-    rxsec: NDArray[np.float_]
-    # mollist: NDArray[np.float_]
-
-
-def get_molecular_weights_and_scattering_opacities(
-    list_of_gases: list[str], gas_parameters: list[float]
-) -> MolecularParameters:
-    mmw, rxsec = af.GetScaOpac(list_of_gases, gas_parameters)
-
-    return MolecularParameters(mmw, rxsec)
-
-
 def get_indices_of_molecular_species(list_of_gases: list[str]) -> NDArray[np.int_]:
     return af.GetMollist(list_of_gases)
 
 
 def make_pressure_grid(natm: int, minP: float, maxP: float) -> NDArray[np.float_]:
     return maxP + (minP - maxP) * np.arange(natm) / (natm - 1)
-
-
-# if P_profile is not None:
-#    profin = P_profile
-# else:
-#    profin = maxP + (minP - maxP) * np.arange(natm) / (natm - 1)
-
-# if atmtype == "Parametric" and natm != 5:
-#    print("Error: wrong parameterization of T-P profile.")
-#    sys.exit()
-
-# Create Planet and read in opacity tables
-# planet = PlanetCCore()
-# print("Haze type:", hazestr)
-# print("Cloud model:", cloudmod)
-# mode = int(mode)
-# cloudmod = int(cloudmod)
-# hazetype = int(hazetype)
 
 
 def set_TP_model_index(atmtype: str) -> int:
@@ -606,64 +569,3 @@ def set_up_PyPlanet(
         opacity_catalog_name=opacity_catalog_name,
         Teff_opacity_catalog_name=Teff_opacity_catalog_name,
     )
-
-
-"""
-MakePlanet_kwargs = CPlanetBlueprint(
-    observation_mode_index=mode, # RIfF: ModelParameters.mode
-    cloud_model_index=cloudmod, # RIfF: CloudReadinParameters.cloudmod
-    hazetype_index=hazetype, # RIfF CloudReadinParameters.hazetype
-    number_of_streams=streams, # RIfF: ModelParameters.streams
-    TP_model_switch=atmmod, #PI: set_TP_model_index(atmtype), atmtype from RIfF: TPReadinParameters.atmtype
-    model_wavelengths=modwave, BandSpecs.modwave from PI: pare_down_model_wavelengths,
-        from PI: set_model_wavelengths_from_opacity_tables,
-        args from RifF: OpacityParameters
-    Teff_calculation_wavelengths=modwavelo, BandSpecs.modwave from PI: set_model_wavelengths_from_opacity_tables,
-        args from RifF: OpacityParameters
-    gas_species_indices=mollist, # PI: af.GetMollist(gases),
-        gases from RifF: GasReadinParameters.gases
-    gas_opacity_directory=opacdir, # RifF: OpacityParameters.opacdir
-    opacity_catalog_name=hires, # RIfF: OpacityParameters.hires
-    Teff_opacity_catalog_name=lores, # RIfF: OpacityParameters.lores
-)
-
-ModelParameters: mode, streams
-OpacityParameters: everything
-
-"""
-
-
-"""
-MakeModel_initialization_kwargs = MakeModelBlueprint(
-        model_wavelengths=modwave,
-        gas_species=gases,
-        minimum_model_pressure=minP,
-        maximum_model_pressure=maxP,
-        model_pressures=profin,
-        number_of_atmospheric_layers=vres,
-        stellar_effective_temperature=tstar,
-        stellar_radius=rstar,
-        semimajor_axis=sma,
-        distance_to_system=dist,
-        gas_start_index=g1,
-        gas_end_index=g2,
-        TP_model_type=atmtype,
-        TP_model_function=TP_model,
-        is_TP_profile_gray=gray,
-        isothermal_temperature=tgray,
-        is_TP_profile_verbatim=verbatim,
-        TP_start_index=a1,
-        TP_end_index=a2,
-        number_of_TP_arguments=natm,
-        number_of_params1_arguments=ilen,
-        basic_parameter_names=basic,
-        basic_start_index=b1,
-        cloud_model_index=cloudmod,
-        hazetype_index=hazetype,
-        cloud_parameter_names=clouds,
-        cloud_start_index=c1,
-        calibration_parameter_names=end,
-        calibration_start_index=e1,
-        APOLLO_use_mode=task,
-    )
-"""

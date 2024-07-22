@@ -2,16 +2,14 @@ from typing import Any, Final
 
 import numpy as np
 from matplotlib import pyplot as plt
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 
 PADDING: Final[float] = 0.025
 
 
 def calculate_residuals(
-    datas: NDArray[np.float_],
-    models: NDArray[np.float_],
-    errors: NDArray[np.float_],
-) -> NDArray[np.float_]:
+    datas: ArrayLike, models: ArrayLike, errors: ArrayLike
+) -> ArrayLike:
     return (models - datas) / errors
 
 

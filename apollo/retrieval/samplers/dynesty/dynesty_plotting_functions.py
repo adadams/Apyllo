@@ -22,9 +22,6 @@ from numpy.typing import NDArray
 from pandas.compat import pickle_compat
 from yaml import safe_load
 
-from apollo.dataset.accessors import change_units
-from apollo.dataset.IO import load_dataset_with_units
-from apollo.formats.custom_types import Pathlike
 from apollo.generate_cornerplot import generate_cornerplot
 from apollo.make_forward_model_from_file import evaluate_model_spectrum
 from apollo.retrieval.plotting.contributions_plot import (
@@ -55,6 +52,9 @@ from apollo.visualization_functions import (
     create_linear_colormap,
     create_monochromatic_linear_colormap,
 )
+from custom_types import Pathlike
+from dataset.accessors import change_units
+from dataset.IO import load_dataset_with_units
 from user.forward_models.inputs.parse_APOLLO_inputs import write_parsed_input_to_output
 from user.plots.plots_config import DEFAULT_PLOT_FILETYPES
 

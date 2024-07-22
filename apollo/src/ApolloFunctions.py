@@ -370,7 +370,14 @@ def GetBins(specwave, obslo, obshi):
     return [binslo, binshi]
 
 
-def GetScaOpac(gases, abunds):
+def GetScaOpac_linear(gases, abunds) -> list[np.ndarray, np.ndarray]:
+    # accept non-log abundances, just the fractional mixing ratio.
+    abunds = np.log10(abunds)
+
+    return GetScaOpac(gases, abunds)
+
+
+def GetScaOpac(gases, abunds) -> list[np.ndarray, np.ndarray]:
     other_abundances = 10**abunds
     filler_abundance = 1.0 - np.sum(other_abundances)
     mixing_ratios = np.r_[filler_abundance, other_abundances]

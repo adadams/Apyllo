@@ -1,3 +1,6 @@
+dimensional_arguments = ['pressures']
+
+[parameters]
 T_m4 =  { print_name = '$T_{-4}$', units = 'kelvin' }
 T_m3 =  { print_name = '$T_{-3}$', units = 'kelvin' }
 T_m2 =  { print_name = '$T_{-2}$', units = 'kelvin' }

@@ -11,7 +11,7 @@ APOLLO_DIRECTORY = abspath(
 )
 sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.formats.custom_types import Pathlike  # noqa: E402
+from custom_types import Pathlike  # noqa: E402
 from apollo.retrieval.results.build_results_datasets import (  # noqa: E402
     compile_contributions_into_dataset,
     compile_results_into_dataset,

@@ -4,14 +4,14 @@ from typing import Any, TypedDict
 import numpy as np
 from matplotlib import pyplot as plt
 
-from apollo.dataset.IO import load_dataset_with_units
-from apollo.formats.custom_types import Pathlike
 from apollo.retrieval.results.IO import unpack_results_filepaths
 from apollo.retrieval.results.manipulate_results_datasets import (
     calculate_MLE,
     calculate_percentile,
 )
 from apollo.visualization_functions import convert_to_greyscale
+from custom_types import Pathlike
+from dataset.IO import load_dataset_with_units
 from user.plots.plots_config import DEFAULT_PLOT_FILETYPES, DEFAULT_SAVE_PLOT_KWARGS
 
 

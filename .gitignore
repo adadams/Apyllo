@@ -1,4 +1,5 @@
 .DS_Store
+*.pkl
 *.pyc
 src/.nfs*
 defunct/
@@ -23,3 +24,7 @@ plot_stuff_JWST-only_2M2236_logg-normal_against_HK+JWST_2M2236_logg-free_data.pi
 .idea/misc.xml
 .idea/APOLLO.iml
 .idea/modules.xml
+working_philosophy.txt
+data_spoof_0.6_5.0_R500.dat
+apollo/submodels/play_with_signature.py
+apollo/test_enum_stuff.py

@@ -256,7 +256,7 @@ class Planet:
                 grav = 10 ** x[b1 + pos]
             else:
                 params1[1] = 4.1
-                grav = 4.1
+                grav = 10**4.1
 
             # Cloud deck handling
             if "Cloud_Base" in clouds:

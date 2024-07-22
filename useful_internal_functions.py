@@ -8,7 +8,7 @@ import numpy as np
 import yaml
 from numpy.typing import NDArray
 
-from apollo.formats.custom_types import Pathlike
+from custom_types import Pathlike
 
 
 def compose(*functions):

@@ -1,26 +1,19 @@
 import inspect
-import sys
 from functools import partial
-from os.path import abspath
 from typing import Any, Callable, Self
 
 import numpy as np
 import tomllib
 from numpy.typing import NDArray
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
-
-from apollo.formats.custom_types import Pathlike  # noqa: E402
-from apollo.useful_internal_functions import turn_dictionary_into_string  # noqa: E402
-
-# Protocols are for general practice for implementing something in APOLLO.
-# ABCs are for MY implementation of that something.
+from custom_types import Pathlike  # noqa: E402
+from useful_internal_functions import turn_dictionary_into_string  # noqa: E402
 
 
+# NOTE: could do a class decorator instead of function decorator?
+# How should we treat the current construction where we can sub-sequently load
+# parameter values and return the same object?
+# I think this is okay because the class can initially be constructed without loaded arguments.
 class FunctionModel:
     def __init__(
         self,
@@ -31,6 +24,12 @@ class FunctionModel:
     ) -> Self:
         self.function: Callable = function
         self.function_arguments: list[str] = inspect.getfullargspec(self.function).args
+
+        self.free_arguments: list[str] = [
+            function_argument
+            for function_argument in self.function_arguments
+            if function_argument not in metadata["dimensional_arguments"]
+        ]
 
         self.loaded_function: Callable = (
             partial(function, *function_args, **function_kwargs)
@@ -50,13 +49,15 @@ class FunctionModel:
         self.metadata: dict[str, dict[str, Any]] = metadata if metadata else dict()
 
     def __repr__(self) -> str:
+        parameter_metadata = self.metadata["parameters"]
+
         metadata_print_style: str = "".join(
             [
                 f"{argument_name} = {self.loaded_function_arguments[argument_name]} "
-                + f"(metadata: {turn_dictionary_into_string(self.metadata.get(argument_name))})\n"
+                + f"(metadata: {turn_dictionary_into_string(parameter_metadata.get(argument_name))})\n"
                 if argument_name in self.loaded_function_arguments
                 else f"{argument_name} "
-                + f"(metadata: {turn_dictionary_into_string(self.metadata.get(argument_name))})\n"
+                + f"(metadata: {turn_dictionary_into_string(parameter_metadata.get(argument_name))})\n"
                 for argument_name in self.function_arguments
             ]
         )
@@ -106,3 +107,5 @@ def make_model(
 # species, or a modified version of the Piette profile, or each gas species implementing
 # Rayleigh scattering and its own opacity table read. Is this just reimplementing something
 # obvious?
+
+# FUTURE: store the signature in the class, and use properties to access various parts of it?

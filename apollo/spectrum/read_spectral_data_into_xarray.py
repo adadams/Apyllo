@@ -8,20 +8,19 @@ import tomllib
 from numpy.typing import NDArray
 from xarray import Coordinates, Dataset, Variable
 
-from apollo.dataset.builders import (
+from apollo.spectrum.band_bin_and_convolve import (
+    find_band_slices_from_wavelength_bins,
+    get_wavelengths_from_wavelength_bins,
+)
+from custom_types import Pathlike
+from dataset.builders import (
     AttributeBlueprint,
-    DatasetBlueprint,
     SpecifiedDataBlueprint,
     VariableBlueprint,
     format_array_with_specifications,
     read_specified_data_into_variable,
 )
-from apollo.formats.custom_types import Pathlike
-from apollo.spectrum.band_bin_and_convolve import (
-    find_band_slices_from_wavelength_bins,
-    get_wavelengths_from_wavelength_bins,
-)
-from apollo.useful_internal_functions import compose
+from useful_internal_functions import compose
 
 with open("apollo/formats/APOLLO_data_file_format.toml", "rb") as data_format_file:
     APOLLO_DATA_FORMAT: dict[str, AttributeBlueprint] = tomllib.load(data_format_file)
@@ -124,10 +123,10 @@ def read_APOLLO_data_into_dataset(
 
     coordinates: Coordinates = Coordinates(coordinate_dictionary)
 
-    dataset_inputs: DatasetBlueprint = {
-        "data_vars": data_variables,
-        "coords": coordinates,
-        "attrs": {"title": data_name, **additional_dataset_attributes},
-    }
+    dataset: Dataset = Dataset(
+        data_vars=data_variables,
+        coords=coordinates,
+        attrs={"title": data_name, **additional_dataset_attributes},
+    )
 
-    return Dataset(**dataset_inputs).pint.quantify()
+    return dataset.pint.quantify()

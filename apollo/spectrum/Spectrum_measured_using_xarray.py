@@ -6,7 +6,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 from xarray import Coordinates, DataArray, Dataset, Variable
 
-from apollo.dataset.builders import unit_safe_apply_ufunc
 from apollo.spectrum.band_bin_and_convolve import (
     BinSpecwithErrors,
     ConvSpec,
@@ -15,7 +14,8 @@ from apollo.spectrum.band_bin_and_convolve import (
 )
 from apollo.spectrum.read_spectral_data_into_xarray import make_band_coordinate
 from apollo.spectrum.Spectrum_using_xarray import Spectrum
-from apollo.useful_internal_functions import count_number_of_arguments
+from dataset.builders import unit_safe_apply_ufunc
+from useful_internal_functions import count_number_of_arguments
 
 
 class DataSpectrum(Spectrum):

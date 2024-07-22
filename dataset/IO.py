@@ -7,8 +7,8 @@ from pint import UnitRegistry
 from pint_xarray import setup_registry
 from xarray import Dataset, load_dataset
 
-from apollo.formats.custom_types import Pathlike
-from apollo.useful_internal_functions import compose
+from custom_types import Pathlike
+from useful_internal_functions import compose
 from user_directories import USER_DIRECTORY
 
 ADDITIONAL_UNITS_FILE: Final[Path] = (

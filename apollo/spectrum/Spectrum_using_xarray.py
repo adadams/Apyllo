@@ -6,7 +6,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 from xarray import Coordinates, DataArray, Dataset, Variable, register_dataset_accessor
 
-from apollo.dataset.builders import unit_safe_apply_ufunc
 from apollo.spectrum.band_bin_and_convolve import (
     BinSpec,
     ConvSpec,
@@ -14,7 +13,8 @@ from apollo.spectrum.band_bin_and_convolve import (
     get_wavelengths_from_wavelength_bins,
 )
 from apollo.spectrum.read_spectral_data_into_xarray import make_band_coordinate
-from apollo.useful_internal_functions import count_number_of_arguments
+from dataset.builders import unit_safe_apply_ufunc
+from useful_internal_functions import count_number_of_arguments
 
 
 @register_dataset_accessor("spectrum")
@@ -65,6 +65,11 @@ class Spectrum:
     @property
     def mean_resolution(self, pixels_per_resolution_element=1) -> float:
         return np.mean(self.pixel_resolution.values / pixels_per_resolution_element)
+
+    def get_bands(self, bands: str | list[str]) -> Self:
+        bands = bands if isinstance(bands, list) else [bands]
+
+        return self._data.where(self._data.band.isin(bands), drop=True)
 
     def units_for(self, variable_name: str) -> str:
         variable: DataArray = self._data.get(variable_name)

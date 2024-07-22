@@ -15,10 +15,10 @@ def get_wavelength_bins_from_wavelengths(
 ) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
     half_wavelength_differences = np.diff(wavelengths) / 2
 
-    wavelength_bin_starts = wavelengths - np.stack(
+    wavelength_bin_starts = wavelengths - np.hstack(
         (half_wavelength_differences[0], half_wavelength_differences)
     )
-    wavelength_bin_ends = wavelengths + np.stack(
+    wavelength_bin_ends = wavelengths + np.hstack(
         (half_wavelength_differences, half_wavelength_differences[-1])
     )
     return wavelength_bin_starts, wavelength_bin_ends
@@ -46,7 +46,7 @@ def find_band_limits_from_wavelength_bins(
         wavelength_bin_starts, wavelength_bin_ends
     )
 
-    return (
+    return tuple(
         (wavelength_bin_starts[start], wavelength_bin_ends[end])
         for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
     )

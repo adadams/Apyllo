@@ -19,3 +19,7 @@
 (7) In general, being able to turn things on or off (e.g. Rayleigh scattering).
 
 (8) Have some easily check-able opacity reference info at run-time.
+
+(9) Casting a contributions dataset into a Spectrum or DataSpectrum and then calling get_bands works just fine,
+    but creating a Spectrum or DataSpectrum object alone doesn't, because the __repr__ method relies on the wavelength
+    bins, which the contribution dataset doesn't have.

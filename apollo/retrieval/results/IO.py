@@ -10,11 +10,11 @@ import tomllib
 from numpy.typing import NDArray
 from xarray import Dataset
 
-from apollo.formats.custom_types import Pathlike  # noqa: E402
+from custom_types import Pathlike  # noqa: E402
 from apollo.retrieval.results.manipulate_results_datasets import (  # noqa: E402
     change_parameter_values_using_MLE_dataset,
 )
-from apollo.useful_internal_functions import load_multi_yaml_file_into_dict
+from useful_internal_functions import load_multi_yaml_file_into_dict
 from user.forward_models.inputs.parse_APOLLO_inputs import (  # noqa: E402
     change_properties_of_parameters,
     parse_APOLLO_input_file,
@@ -158,7 +158,6 @@ def get_print_names_from_parameter_names(
 
 
 def create_MLE_output_dictionary(
-    results: SamplingResults,
     MLE_parameters: Dataset,
     input_parameters_filepath: Pathlike,
 ) -> dict:

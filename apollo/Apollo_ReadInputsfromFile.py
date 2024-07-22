@@ -1,9 +1,10 @@
 import sys
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum, auto
 from os.path import abspath
 from pathlib import Path
-from typing import IO, Any, Optional, TypedDict
+from typing import IO, Any, Final, NamedTuple, Optional, TypedDict
+from warnings import warn
 
 import numpy as np
 import tomllib
@@ -15,9 +16,14 @@ APOLLO_DIRECTORY = abspath(
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.formats.custom_types import Pathlike  # noqa: E402
-from apollo.planet import RadiusInputs  # noqa: E402
-from apollo.useful_internal_functions import strtobool  # noqa: E402
+import apollo.src.ApolloFunctions as af  # noqa: E402
+from apollo.cloud_parameter_specs import (  # noqa: E402
+    PowerLawOpacityClouds,
+    SingleParticleSizeGaussianNumberDensityClouds,
+    SingleParticleSizeUniformNumberDensityClouds,
+)
+from custom_types import Pathlike  # noqa: E402
+from useful_internal_functions import strtobool  # noqa: E402
 
 default_settings_filepath: Path = Path("apollo") / "default_input_settings.toml"
 with open(default_settings_filepath, "rb") as defaults_file:
@@ -25,6 +31,27 @@ with open(default_settings_filepath, "rb") as defaults_file:
 
 HAZELIST: list[str] = default_settings["hazelist"]
 HAZE_ENUM = Enum("HazeSpecies", default_settings["hazelist"], start=0)
+
+# REARTH_IN_CM = R_earth.to(cm).value
+REARTH_IN_CM: Final[float] = 6.371e8
+
+# RJUPITER_IN_REARTH = (R_jup/R_earth).decompose().value
+RJUPITER_IN_REARTH: Final[float] = 11.2
+
+PARSEC_IN_REARTH: Final[float] = 4.838e9
+
+
+class RadiusInputType(StrEnum):
+    Rad = auto()
+    RtoD = auto()
+    RtoD2U = auto()
+    norad = auto()
+
+
+@dataclass(slots=True)
+class ParameterValue:
+    name: str
+    value: float
 
 
 def get_number_of_parameters_from_input_file(input_file: Pathlike) -> int:
@@ -342,17 +369,79 @@ class ParameterDistributionParameters:
     guess: NDArray[np.float_]  # Used for initial conditions, must be length pllen
 
 
+def set_radius(size_parameter: ParameterValue, dist: float) -> ParameterValue:
+    radius_case: RadiusInputType = RadiusInputType[size_parameter.name]
+
+    # Radius handling
+    if radius_case == RadiusInputType.Rad:
+        radius = REARTH_IN_CM * size_parameter.value
+    elif radius_case == RadiusInputType.RtoD:
+        radius = 10**size_parameter.value * dist * PARSEC_IN_REARTH * REARTH_IN_CM
+    elif radius_case == RadiusInputType.RtoD2U:
+        radius = np.sqrt(size_parameter.value) * REARTH_IN_CM
+    else:
+        # norad True
+        radius = RJUPITER_IN_REARTH * REARTH_IN_CM
+
+    return ParameterValue(name="radius", value=radius)
+
+
+def set_log_gravity(log_gravity: float = None, default_logg: float = 4.1) -> float:
+    return log_gravity if log_gravity else default_logg
+
+
 @dataclass
 class FundamentalReadinParameters:
     b1: int  # Index of first fundamental ("basic") parameter in list of parameters
     bnum: int  # Number of fundamental parameters
     b2: int = field(init=False)
     basic: list[str]  # List of fundamental parameter names
-    radius_case: RadiusInputs
-    ilogg: Optional[int]  # Index of gravity parameter
+    radius_case: RadiusInputType = field(init=False)
+    radius_index: float = field(init=False)
+    gravity_index: float  # ilogg
 
     def __post_init__(self):
         self.b2 = self.b1 + self.bnum
+
+        radius_case_options: list[str] = [
+            radius_case.name for radius_case in RadiusInputType
+        ]
+        for i, fundamental_parameter_name in enumerate(self.basic):
+            if fundamental_parameter_name in radius_case_options:
+                self.radius_case = RadiusInputType[fundamental_parameter_name]
+                self.radius_index = self.b1 + i
+                break  # there should only be one radius parameter
+            else:
+                self.radius_case = RadiusInputType.norad
+
+    def bodge_radius_parameter(
+        self, parameter_values: NDArray[np.float_], distance_to_system_in_parsecs: float
+    ) -> ParameterValue:
+        size_value: float = parameter_values[self.radius_index]
+
+        size_parameter: ParameterValue = ParameterValue(
+            name=self.radius_case.name, value=size_value
+        )
+
+        return set_radius(size_parameter, distance_to_system_in_parsecs)
+
+    def bodge_gravity_parameter(
+        self, parameter_values: NDArray[np.float_]
+    ) -> ParameterValue:
+        gravity_value: float = parameter_values[self.gravity_index]
+
+        return set_log_gravity(gravity_value)
+
+
+@dataclass
+class MolecularParameters:
+    species: list[str]
+    weighted_molecular_weights: NDArray[np.float_]
+    weighted_scattering_cross_sections: NDArray[np.float_]
+    # mollist: NDArray[np.float_]
+
+
+# NOTE: shuttle this to the GasReadin object.
 
 
 @dataclass
@@ -366,6 +455,30 @@ class GasReadinParameters:
     def __post_init__(self):
         self.g2 = self.g1 + self.gnum
         self.ngas = self.gnum + 1
+
+    @property
+    def gas_nonfiller_log_abundances(
+        self, parameter_values: NDArray[np.float_]
+    ) -> NDArray[np.float_]:
+        return parameter_values[self.g1 : self.g2]
+
+    def bodge_gas_parameters(
+        self, parameter_values: NDArray[np.float_]
+    ) -> list[ParameterValue]:
+        return [
+            ParameterValue(gas_parameter_name, gas_parameter_value)
+            for gas_parameter_name, gas_parameter_value in zip(
+                self.gases, self.gas_nonfiller_log_abundances
+            )
+        ]
+
+    def get_molecular_weights_and_scattering_opacities(
+        self, parameter_values: NDArray[np.float_]
+    ) -> MolecularParameters:
+        gas_parameters = self.get_gas_nonfiller_log_abundances(parameter_values)
+
+        mmw, rxsec = af.GetScaOpac(self.gases, gas_parameters)
+        return MolecularParameters(mmw, rxsec)
 
 
 @dataclass
@@ -385,6 +498,98 @@ class TPReadinParameters:
             self.a2 = self.a2 - 1
             self.anum = self.anum - 1
 
+    def bodge_TP_parameters(
+        self, parameter_values: NDArray[np.float_]
+    ) -> list[ParameterValue]:
+        TP_parameter_values = parameter_values[self.a1 : self.a2]
+
+        return [
+            ParameterValue(TP_parameter_name, TP_parameter_value)
+            for TP_parameter_name, TP_parameter_value in zip(
+                self.basic, TP_parameter_values
+            )
+        ]
+
+
+class CloudModel(Enum):
+    no_clouds = auto()
+    opaque_deck = auto()
+    single_particle_size_uniform_number_density = auto()
+    single_particle_size_gaussian_number_density = auto()
+    power_law_opacity = auto()
+
+
+def get_cloud_deck_log_pressure(
+    cloud_parameters: dict[str, ParameterValue],
+    minimum_log_pressure_in_CGS: float = 0.0,
+    maximum_log_pressure_in_CGS: float = 8.5,
+) -> float:
+    if "Cloud_Base" in cloud_parameters:
+        cloud_deck_log_pressure: float = cloud_parameters["Cloud_Base"].value
+
+    elif "P_cl" in cloud_parameters:
+        cloud_deck_log_pressure: float = cloud_parameters["P_cl"].value
+
+    else:
+        warn(
+            "Cloud deck pressure not found under either of expected names: 'Cloud_Base' or 'P_cl'."
+            + f"Setting to {10**(maximum_log_pressure_in_CGS-6)} bar."
+        )
+
+        cloud_deck_log_pressure: float = maximum_log_pressure_in_CGS
+
+    return (
+        cloud_deck_log_pressure
+        if cloud_deck_log_pressure >= minimum_log_pressure_in_CGS
+        else minimum_log_pressure_in_CGS + 0.01
+    )
+
+
+def set_cloud_parameters(
+    cloud_model_case: CloudModel, cloud_parameters: dict[str, ParameterValue]
+) -> NamedTuple:
+    cloud_pressure_parameter_names: tuple[str] = (
+        "Haze_minP",
+        "Haze_meanP",
+        "Haze_maxP",
+    )
+
+    cloud_parameter_dict: dict[str, float] = {
+        parameter_name: parameter.value + 6
+        if parameter_name in cloud_pressure_parameter_names
+        else parameter.value
+        for parameter_name, parameter in cloud_parameters.items()
+    }
+
+    if cloud_model_case == CloudModel.single_particle_size_uniform_number_density:
+        cloud_parameter_dict["Haze_maxP"] = cloud_parameter_dict[
+            "Haze_minP"
+        ] + cloud_parameter_dict.pop("Haze_thick")
+
+        return SingleParticleSizeUniformNumberDensityClouds(
+            cloud_number_density=cloud_parameter_dict["Haze_abund"],
+            cloud_particle_size=cloud_parameter_dict["Haze_size"],
+            cloud_minimum_log_pressure=cloud_parameter_dict["Haze_minP"],
+            cloud_maximum_log_pressure=cloud_parameter_dict["Haze_maxP"],
+        )
+
+    elif cloud_model_case == CloudModel.single_particle_size_gaussian_number_density:
+        return SingleParticleSizeGaussianNumberDensityClouds(
+            cloud_peak_number_density=cloud_parameter_dict["Haze_Pabund"],
+            cloud_particle_size=cloud_parameter_dict["Haze_size"],
+            cloud_peak_log_pressure=cloud_parameter_dict["Haze_meanP"],
+            cloud_log_pressure_scale=cloud_parameter_dict["Haze_scale"],
+        )
+
+    elif cloud_model_case == CloudModel.power_law_opacity:
+        return PowerLawOpacityClouds(
+            opacity_power_law_exponent=cloud_parameter_dict["Haze_alpha"],
+            cloud_minimum_log_pressure=cloud_parameter_dict["Haze_minP"],
+            cloud_log_pressure_thickness=cloud_parameter_dict["Haze_thick"],
+            cloud_reference_log_optical_depth=cloud_parameter_dict["Haze_tau"],
+            cloud_single_scattering_albedo=cloud_parameter_dict["Haze_w0"],
+        )
+
 
 @dataclass
 class CloudReadinParameters:
@@ -400,6 +605,41 @@ class CloudReadinParameters:
     def __post_init__(self):
         self.c2 = self.c1 + self.cnum
         self.ilen = 10 + self.cnum
+
+    def make_cloud_parameter_tuple(
+        self, parameter_values: NDArray[np.float_]
+    ) -> NamedTuple:
+        cloud_model_case: CloudModel = CloudModel(self.cloudmod)
+
+        return set_cloud_parameters(
+            cloud_model_case, self.bodge_cloud_parameters(parameter_values)
+        )
+
+    def bodge_cloud_parameters(
+        self, parameter_values: NDArray[np.float_]
+    ) -> dict[str, ParameterValue]:
+        cloud_parameter_values = parameter_values[self.c1 : self.c2]
+
+        return {
+            cloud_parameter_name: ParameterValue(
+                cloud_parameter_name, cloud_parameter_value
+            )
+            for cloud_parameter_name, cloud_parameter_value in zip(
+                self.clouds, cloud_parameter_values
+            )
+        }
+
+    def get_cloud_filling_fraction(self, parameter_values: NDArray[np.float_]) -> float:
+        cloud_parameters: dict[str, ParameterValue] = self.bodge_cloud_parameters(
+            parameter_values
+        )
+
+        if "Cloud_Fraction" in cloud_parameters:
+            cloud_filling_fraction: float = cloud_parameters["Cloud_Fraction"].value
+        else:
+            cloud_filling_fraction: float = 1.0
+
+        return cloud_filling_fraction
 
 
 @dataclass
@@ -565,8 +805,22 @@ def read_in_model_parameters(
     parameter_distribution_parameters = ParameterDistributionParameters(
         mu, sigma, bounds, guess
     )
+
+    if norad:
+        radius_case: RadiusInputType = RadiusInputType.norad
+    else:
+        radius_case_options: list[str] = [
+            radius_case.name for radius_case in RadiusInputType
+        ]
+        for fundamental_parameter_name in basic:
+            if fundamental_parameter_name in radius_case_options:
+                radius_case = RadiusInputType[fundamental_parameter_name]
+                break
+        else:
+            raise ValueError("No matching radius case found.")
+
     fundamental_readin_parameters = FundamentalReadinParameters(
-        b1, bnum, basic, ilogg, norad
+        b1, bnum, basic, radius_case, ilogg
     )
     gas_readin_parameters = GasReadinParameters(g1, gnum, gases)
     TP_readin_parameters = TPReadinParameters(
@@ -588,7 +842,13 @@ def read_in_model_parameters(
     )
 
 
-def main(input_file: Pathlike) -> ReadinParametersBlueprint:
+class APOLLOFileReadinBlueprint(TypedDict):
+    number_of_parameters: int
+    settings: SettingsBlueprint
+    parameters: ReadinParametersBlueprint
+
+
+def read_inputs_from_file(input_file: Pathlike) -> APOLLOFileReadinBlueprint:
     number_of_parameters: int = get_number_of_parameters_from_input_file(input_file)
 
     settings: SettingsBlueprint = read_in_settings_from_input_file(input_file)
@@ -597,8 +857,8 @@ def main(input_file: Pathlike) -> ReadinParametersBlueprint:
         pllen=number_of_parameters, input_file=input_file, minP=-4, maxP=2.5
     )
 
-    return {
-        "number_of_parameters": number_of_parameters,
-        "settings": settings,
-        "parameters": parameters,
-    }
+    return APOLLOFileReadinBlueprint(
+        number_of_parameters=number_of_parameters,
+        settings=settings,
+        parameters=parameters,
+    )

@@ -2,6 +2,7 @@ from functools import lru_cache
 from typing import Any, Callable, Sequence, TypedDict
 
 import numpy as np
+import tomli_w
 from numpy.typing import NDArray
 
 from apollo.Apollo_components import (
@@ -11,7 +12,7 @@ from apollo.Apollo_components import (
     ProcessInputs,
     ReadInputsfromFile,
 )
-from apollo.formats.custom_types import Pathlike
+from custom_types import Pathlike
 from apollo.planet import Planet
 
 OPACITY_DIRECTORY = "/Volumes/ResearchStorage/Opacities_0v10/"
@@ -26,6 +27,10 @@ class PreppedInputs(TypedDict):
 @lru_cache
 def prep_inputs_for_model(input_filepath: Pathlike) -> dict:
     inputs: dict = ReadInputsfromFile(input_filepath)
+
+    with open("test_input_toml.toml", "wb") as test_file:
+        tomli_w.dump(inputs, test_file)
+
     inputs["opacdir"] = OPACITY_DIRECTORY
 
     processed_inputs: ProcessedInputs = ProcessInputs(**inputs)

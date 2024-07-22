@@ -8,19 +8,8 @@ from pandas.compat import pickle_compat
 from pint import Unit
 
 # from tqdm import tqdm
-from xarray import DataArray, Dataset, apply_ufunc
+from xarray import Coordinates, DataArray, Dataset, Variable, apply_ufunc
 
-from apollo.dataset.accessors import (
-    extract_dataset_subset_by_parameter_group,
-    extract_free_parameters_from_dataset,
-)
-from apollo.dataset.builders import (
-    VariableBlueprint,
-    make_dataset_variables_from_dict,
-    organize_parameter_data_in_xarray,
-)
-from apollo.dataset.IO import prep_and_save_dataset
-from apollo.formats.custom_types import Pathlike
 from apollo.make_forward_model_from_file import (
     evaluate_model_spectrum,
     prep_inputs_for_model,
@@ -30,7 +19,21 @@ from apollo.retrieval.results.IO import (
     get_parameter_properties_from_defaults,
 )
 from apollo.retrieval.results.manipulate_results_datasets import calculate_MLE
+from custom_types import Pathlike
+from dataset.accessors import (
+    extract_dataset_subset_by_parameter_group,
+    extract_free_parameters_from_dataset,
+)
+from dataset.builders import organize_parameter_data_in_xarray
+from dataset.IO import prep_and_save_dataset
 from user.forward_models.inputs.parse_APOLLO_inputs import parse_APOLLO_input_file
+
+
+class ResultsAttributeBlueprint(TypedDict):
+    units: str
+    print_name: str
+    string_format: str
+    base_group: str
 
 
 class RunDatasetBlueprint(TypedDict):
@@ -210,41 +213,61 @@ def compile_results_into_dataset(
     return results_dataset
 
 
-def compile_contributions_into_dataset(
+def get_binned_wavelengths(MLE_parameters_filepath: Pathlike) -> NDArray[np.float_]:
+    return prep_inputs_for_model(MLE_parameters_filepath)["binned_wavelengths"]
+
+
+def load_contribution_files(
     original_contributions_filepath: Pathlike,
-    MLE_parameters_filepath: Pathlike,
+) -> dict[str, NDArray[np.float_]]:
+    with open(original_contributions_filepath, "rb") as pickle_file:
+        return pickle_compat.load(pickle_file)
+
+
+def compile_contributions_into_dataset(
+    contributions: dict[str, NDArray[np.float_]],
+    binned_wavelengths: NDArray[np.float_],
     output_filepath_plus_prefix: Pathlike = None,
-    output_file_suffix: str = "contributions.nc",
     log_pressures: Sequence[float] = MIDLAYER_LOG_PRESSURES,
 ) -> Dataset:
-    wavelengths: NDArray[np.float_] = prep_inputs_for_model(MLE_parameters_filepath)[
-        "binned_wavelengths"
-    ]
+    output_file_suffix: str = "contributions.nc"
 
-    with open(original_contributions_filepath, "rb") as pickle_file:
-        contributions: dict[str, NDArray[np.float_]] = pickle_compat.load(pickle_file)
+    wavelength_coordinate: Variable = Variable(
+        dims="wavelength",
+        data=binned_wavelengths,
+        attrs={"units": "microns"},
+    )
 
-    contributions_coordinates: dict[str, VariableBlueprint] = {
-        "wavelength": {
-            "dims": "wavelength",
-            "data": wavelengths,
-            "attrs": {"units": "microns"},
-        },
-        "log_pressure": {
-            "dims": "log_pressure",
-            "data": log_pressures,
-            "attrs": {"units": "log_10(bars)"},
-        },
+    pressure_coordinate: Variable = Variable(
+        dims="pressure",
+        data=10**log_pressures,
+        attrs={"units": "bar"},
+    )
+
+    contributions_coordinates: Coordinates = Coordinates(
+        {
+            "pressure": pressure_coordinate,
+            "wavelength": wavelength_coordinate,
+        }
+    )
+
+    dimension_names: tuple[str] = tuple(contributions_coordinates.keys())
+
+    contribution_data: dict[str, Variable] = {
+        contribution_component_name: Variable(
+            dims=dimension_names,
+            data=contribution_component,
+            attrs={"units": "dimensionless"},
+        )
+        for contribution_component_name, contribution_component in contributions.items()
     }
 
     contributions_dataset: Dataset = Dataset.from_dict(
         {
             "coords": contributions_coordinates,
             "attrs": {"title": "contribution_functions"},
-            "dims": (dimension_names := tuple(contributions_coordinates.keys())),
-            "data_vars": make_dataset_variables_from_dict(
-                contributions, dimension_names
-            ),
+            "dims": dimension_names,
+            "data_vars": contribution_data,
         }
     ).transpose("log_pressure", "wavelength")
 

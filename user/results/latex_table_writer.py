@@ -2,12 +2,12 @@ from typing import Callable
 
 from xarray import Dataset
 
-from apollo.dataset.accessors import load_dataset_with_units
-from apollo.formats.custom_types import Pathlike
 from apollo.retrieval.results.manipulate_results_datasets import (
     calculate_MLE,
     calculate_percentile,
 )
+from custom_types import Pathlike
+from dataset.accessors import load_dataset_with_units
 
 
 def format_percentile_for_latex(

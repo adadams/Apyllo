@@ -101,19 +101,10 @@ def create_Arthurs_multi_figure(
 
 
 def setup_multi_figure(
-    number_of_contributions: int,
-    number_of_bands: int,
-    wavelength_ranges: Sequence[float],
+    multi_figure_blueprint: MultiFigureBlueprint,
 ) -> MultiFigure:
-    figure = plt.Figure(figsize=(40, 30))
-
-    gridspec = figure.add_gridspec(
-        nrows=number_of_contributions + 2,
-        ncols=number_of_bands,
-        height_ratios=[4, 2] + ([3] * number_of_contributions),
-        width_ratios=wavelength_ranges,
-    )
-
+    figure: plt.Figure = plt.Figure(**multi_figure_blueprint.figure_kwargs)
+    gridspec: GridSpec = figure.add_gridspec(**multi_figure_blueprint.gridspec_kwargs)
     axis_array: NDArray[np.object_] = gridspec.subplots()
 
     return MultiFigure(figure=figure, gridspec=gridspec, axis_array=axis_array)
@@ -134,8 +125,12 @@ def draw_on_multi_figure(
     # you didn't pick for iteration.
 
     for plot_artists_by_type in plot_artists_by_type_by_band:
+        axis_plotting_function: DrawsOnAxis = partial(
+            plot_along_axis_dimension, axis_plotters=plot_artists_by_type
+        )
+
         np.apply_along_axis(
-            partial(plot_along_axis_dimension, axis_plotters=plot_artists_by_type),
+            axis_plotting_function,
             axis=artist_dimension.value,
             arr=multi_figure.axis_array,
         )
