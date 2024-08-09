@@ -2,8 +2,8 @@ import inspect
 from functools import partial
 from typing import Any, Callable, Self
 
+import msgspec
 import numpy as np
-import tomllib
 from numpy.typing import NDArray
 
 from custom_types import Pathlike  # noqa: E402
@@ -77,13 +77,12 @@ class FunctionModel:
 def make_model(
     function: Callable = None,
     path_to_metadata: Pathlike = None,
-    metadata_loader: Callable = tomllib.load,
+    metadata_loader: Callable = msgspec.toml.decode,
     *function_args,
     **function_kwargs,
 ):
     if path_to_metadata is not None:
-        with open(path_to_metadata, "rb") as metadata_file:
-            metadata: dict[str, dict[str, Any]] = metadata_loader(metadata_file)
+        metadata: dict[str, dict[str, Any]] = metadata_loader(path_to_metadata)
     else:
         function_argument_names: list[str] = inspect.getfullargspec(function).args
         metadata: dict[str, None] = dict.fromkeys(function_argument_names, None)

@@ -23,3 +23,9 @@
 (9) Casting a contributions dataset into a Spectrum or DataSpectrum and then calling get_bands works just fine,
     but creating a Spectrum or DataSpectrum object alone doesn't, because the __repr__ method relies on the wavelength
     bins, which the contribution dataset doesn't have.
+
+(10) Having no carbon or oxygen-containing species will throw a zero/zero error when calculating C/O. Solution is probably
+     to make C/O ratio calculation optional depending on whether any applicable species exist.
+
+(11) I would like a simple and consistent way to log the "provenance" of opacity sources. There is probably something out
+     there I can just borrow.

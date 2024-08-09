@@ -7,7 +7,7 @@ APOLLO_DIRECTORY = abspath(
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
-from apollo.submodels.TP import piette  # noqa: E402
+from apollo.submodels.TP import modified_piette as piette  # noqa: E402
 
 print(piette)
 print(piette.load_parameters(T_m4=500, T_m3=1000, T_m2=1500))

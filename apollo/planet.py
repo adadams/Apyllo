@@ -1,7 +1,7 @@
 from dataclasses import InitVar, dataclass, field
 from enum import StrEnum, auto
 from functools import partial
-from typing import Callable, Sequence, TypedDict
+from typing import Callable, NamedTuple, Sequence, TypedDict
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -26,12 +26,16 @@ class RadiusInputs(StrEnum):
     norad = auto()
 
 
-class CPlanetBlueprint(TypedDict):
+class SwitchBlueprint(NamedTuple):
     observation_mode_index: int
     cloud_model_index: int
     hazetype_index: int
     number_of_streams: int
     TP_model_switch: int
+
+
+class CPlanetBlueprint(NamedTuple):
+    switches: SwitchBlueprint
     model_wavelengths: Sequence[float]
     Teff_calculation_wavelengths: Sequence[float]
     gas_species_indices: Sequence[int]

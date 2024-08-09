@@ -28,3 +28,9 @@ working_philosophy.txt
 data_spoof_0.6_5.0_R500.dat
 apollo/submodels/play_with_signature.py
 apollo/test_enum_stuff.py
+fit_T_array_to_piette.py
+test_function_structure.py
+apollo/test_msgspec.py
+apollo/test_piette_models.py
+apollo/submodels/test_function_model.py
+apollo/submodels/test_function_model.py

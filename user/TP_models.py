@@ -309,6 +309,12 @@ def piette_monotonic_prior(
     )
 
 
+def piette_monotonic_prior_alt_implementation(
+    distribution_functions, distribution_parameter_sets, input_values, sampler_type
+):
+    pass
+
+
 ###############################################################################
 
 

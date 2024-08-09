@@ -47,7 +47,7 @@ def find_band_limits_from_wavelength_bins(
     )
 
     return tuple(
-        (wavelength_bin_starts[start], wavelength_bin_ends[end])
+        (wavelength_bin_starts[start], wavelength_bin_ends[end - 1])
         for start, end in zip(indices_bounding_bands[:-1], indices_bounding_bands[1:])
     )
 

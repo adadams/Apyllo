@@ -46,9 +46,9 @@ def generate_emission_spectrum_from_APOLLO_file(
 ) -> dict:
     readin_specs: APOLLOFileReadinBlueprint = read_inputs_from_file(input_file)
 
-    parameter_values: list[float] = readin_specs["parameters"]["readin_parameters"][
-        "plparams"
-    ]
+    parameter_values: list[float] = readin_specs["parameters"][
+        "readin_parameters"
+    ].plparams
 
     model_parameters: ModelParameters = readin_specs["settings"]["model_parameters"]
 
@@ -73,21 +73,21 @@ def generate_emission_spectrum_from_APOLLO_file(
     TP_readin_parameters: TPReadinParameters = readin_specs["parameters"][
         "TP_readin_parameters"
     ]
-    TP_functional_type: str = TP_readin_parameters["atmtype"]
+    TP_functional_type: str = TP_readin_parameters.atmtype
     TP_function_parameters: list[ParameterValue] = (
         TP_readin_parameters.bodge_TP_parameters(parameter_values)
     )
     Teff_calculation_model_wavelengths = (
         set_Teff_calculation_wavelengths_from_opacity_tables(
-            opacdir=opacity_parameters["opacdir"]
+            opacdir=opacity_parameters.opacdir
         )
     )
 
     cloud_readin_parameters: CloudReadinParameters = readin_specs["parameters"][
         "cloud_readin_parameters"
     ]
-    cloud_model_mode: int = cloud_readin_parameters["cloudmod"]
-    cloud_haze_type: int = cloud_readin_parameters["hazetype"]
+    cloud_model_mode: int = cloud_readin_parameters.cloudmod
+    cloud_haze_type: int = cloud_readin_parameters.hazetype
     cloud_filling_fraction: float = cloud_readin_parameters.get_cloud_filling_fraction(
         parameter_values
     )
@@ -95,7 +95,7 @@ def generate_emission_spectrum_from_APOLLO_file(
     gas_readin_parameters: GasReadinParameters = readin_specs["parameters"][
         "gas_readin_parameters"
     ]
-    list_of_gas_species: list[str] = gas_readin_parameters["gases"]
+    list_of_gas_species: list[str] = gas_readin_parameters.gases
     gas_parameters: list[ParameterValue] = gas_readin_parameters.bodge_gas_parameters(
         parameter_values
     )
@@ -110,7 +110,7 @@ def generate_emission_spectrum_from_APOLLO_file(
     ]["fundamental_readin_parameters"]
     distance_to_system_in_parsecs: float = readin_specs["settings"][
         "location_parameters"
-    ]["dist"]
+    ].dist
     radius_parameter: ParameterValue = (
         fundamental_readin_parameters.bodge_radius_parameter(
             parameter_values, distance_to_system_in_parsecs
@@ -151,13 +151,16 @@ def generate_emission_spectrum_from_APOLLO_file(
         transit_parameters=transit_parameters,
     )
 
-    planet: PyPlanet = set_parameters(
-        cclass=planet,
+    parameters_for_planet: list = set_parameters(
         params1=params1,
+        molecular_parameters=molecular_parameters,
+        gas_parameters=gas_parameters,
         TP_model_name=TP_functional_type,
         TP_model_parameters=TP_function_parameters,
-        gas_parameters=gas_parameters,
+        pressure_parameters=pressure_parameters,
     )
+
+    planet.set_Params(*parameters_for_planet)
 
     model_spectrum_fraction: Callable = (
         get_spectrum if cloud_filling_fraction == 1.0 else get_fractional_cloud_spectrum

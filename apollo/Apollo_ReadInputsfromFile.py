@@ -167,6 +167,25 @@ def read_in_settings_from_input_file(
     # Read in settings
 
     nlines = 0
+
+    gray: bool = False
+    polyfit: bool = False
+    tgray: float = 1000.0
+
+    outmode: str = ""
+    exptime: float = 0.0
+    printfull: bool = False
+
+    vres: int = 71
+
+    samples_file: str = ""
+
+    num_samples: int = 0
+    checkpoint_file: str = ""
+    nwalkers: int = 0
+
+    starspec: str = ""
+
     with open(input_file, "r") as fparams:
         while True:
             last_pos = fparams.tell()
@@ -374,7 +393,7 @@ def set_radius(size_parameter: ParameterValue, dist: float) -> ParameterValue:
 
     # Radius handling
     if radius_case == RadiusInputType.Rad:
-        radius = REARTH_IN_CM * size_parameter.value
+        radius = size_parameter.value * REARTH_IN_CM
     elif radius_case == RadiusInputType.RtoD:
         radius = 10**size_parameter.value * dist * PARSEC_IN_REARTH * REARTH_IN_CM
     elif radius_case == RadiusInputType.RtoD2U:
@@ -404,7 +423,7 @@ class FundamentalReadinParameters:
         self.b2 = self.b1 + self.bnum
 
         radius_case_options: list[str] = [
-            radius_case.name for radius_case in RadiusInputType
+            radius_case_enum.name for radius_case_enum in RadiusInputType
         ]
         for i, fundamental_parameter_name in enumerate(self.basic):
             if fundamental_parameter_name in radius_case_options:
@@ -430,7 +449,7 @@ class FundamentalReadinParameters:
     ) -> ParameterValue:
         gravity_value: float = parameter_values[self.gravity_index]
 
-        return set_log_gravity(gravity_value)
+        return ParameterValue(name="Log(g)", value=set_log_gravity(gravity_value))
 
 
 @dataclass
@@ -456,8 +475,7 @@ class GasReadinParameters:
         self.g2 = self.g1 + self.gnum
         self.ngas = self.gnum + 1
 
-    @property
-    def gas_nonfiller_log_abundances(
+    def get_gas_nonfiller_log_abundances(
         self, parameter_values: NDArray[np.float_]
     ) -> NDArray[np.float_]:
         return parameter_values[self.g1 : self.g2]
@@ -468,7 +486,7 @@ class GasReadinParameters:
         return [
             ParameterValue(gas_parameter_name, gas_parameter_value)
             for gas_parameter_name, gas_parameter_value in zip(
-                self.gases, self.gas_nonfiller_log_abundances
+                self.gases, self.get_gas_nonfiller_log_abundances(parameter_values)
             )
         ]
 
@@ -478,12 +496,12 @@ class GasReadinParameters:
         gas_parameters = self.get_gas_nonfiller_log_abundances(parameter_values)
 
         mmw, rxsec = af.GetScaOpac(self.gases, gas_parameters)
-        return MolecularParameters(mmw, rxsec)
+        return MolecularParameters(self.gases, mmw, rxsec)
 
 
 @dataclass
 class TPReadinParameters:
-    atmtype: str = "Layers"  # Default layered atmosphere, could be enum?
+    atmtype: str  # = "Layers"  # Default layered atmosphere, could be enum?
     a1: int  # Index of first T-P parameter in list of parameters
     anum: int  # Number of T-P parameters
     a2: int = field(init=False)
@@ -506,17 +524,17 @@ class TPReadinParameters:
         return [
             ParameterValue(TP_parameter_name, TP_parameter_value)
             for TP_parameter_name, TP_parameter_value in zip(
-                self.basic, TP_parameter_values
+                [""] * len(TP_parameter_values), TP_parameter_values
             )
         ]
 
 
 class CloudModel(Enum):
-    no_clouds = auto()
-    opaque_deck = auto()
-    single_particle_size_uniform_number_density = auto()
-    single_particle_size_gaussian_number_density = auto()
-    power_law_opacity = auto()
+    no_clouds = 0
+    opaque_deck = 1
+    single_particle_size_uniform_number_density = 2
+    single_particle_size_gaussian_number_density = 3
+    power_law_opacity = 4
 
 
 def get_cloud_deck_log_pressure(
@@ -671,6 +689,11 @@ def read_in_model_parameters(
     print("Reading in parameters.")
 
     with open(input_file, "r") as fparams:
+        while True:
+            line = fparams.readline()
+            if "Parameter" in line:
+                break
+
         lines = fparams.readlines()
 
     plparams = np.zeros(pllen)  # Parameter list
@@ -705,6 +728,12 @@ def read_in_model_parameters(
     cnum = 0
     e1 = -1
     enum = 0
+
+    verbatim: bool = False
+
+    cloudmod: int = 0
+    hazestr: str = ""
+    hazetype: int = 0
 
     ensparams = []
 
@@ -806,6 +835,7 @@ def read_in_model_parameters(
         mu, sigma, bounds, guess
     )
 
+    """
     if norad:
         radius_case: RadiusInputType = RadiusInputType.norad
     else:
@@ -818,18 +848,31 @@ def read_in_model_parameters(
                 break
         else:
             raise ValueError("No matching radius case found.")
+    """
 
     fundamental_readin_parameters = FundamentalReadinParameters(
-        b1, bnum, basic, radius_case, ilogg
+        b1=b1, bnum=bnum, basic=basic, gravity_index=ilogg
     )
-    gas_readin_parameters = GasReadinParameters(g1, gnum, gases)
+    gas_readin_parameters = GasReadinParameters(g1=g1, gnum=gnum, gases=gases)
     TP_readin_parameters = TPReadinParameters(
-        atmtype, a1, anum, igamma, smooth, verbatim
+        atmtype=atmtype,
+        a1=a1,
+        anum=anum,
+        igamma=igamma,
+        smooth=smooth,
+        verbatim=verbatim,
     )
     cloud_readin_parameters = CloudReadinParameters(
-        cloudmod, hazestr, hazetype, c1, cnum, clouds
+        cloudmod=cloudmod,
+        hazestr=hazestr,
+        hazetype=hazetype,
+        c1=c1,
+        cnum=cnum,
+        clouds=clouds,
     )
-    calibration_readin_parameters = CalibrationReadinParameters(e1, enum, end)
+    calibration_readin_parameters = CalibrationReadinParameters(
+        e1=e1, enum=enum, end=end
+    )
 
     return ReadinParametersBlueprint(
         readin_parameters=readin_parameters,

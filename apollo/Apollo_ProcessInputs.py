@@ -5,7 +5,7 @@ from os.path import abspath
 from typing import Any, Final, Optional
 
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -20,8 +20,8 @@ from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
     OpacityParameters,
     ParameterValue,
 )
-from apollo.planet import CPlanetBlueprint  # noqa: E402
-from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
+from apollo.planet import CPlanetBlueprint, SwitchBlueprint  # noqa: E402
+from apollo.spectrum.band_bin_and_convolve import (  # noqa: E402
     find_band_limits_from_wavelength_bins,  # noqa: E402
 )
 from apollo.src.wrapPlanet import PyPlanet  # noqa: E402
@@ -95,7 +95,7 @@ override_parameters: dict[str, Any] = {
 
 
 @dataclass
-class RetrievalParameter(slots=True):
+class RetrievalParameter:
     value: ParameterValue
     guess: float
     mu: float
@@ -104,7 +104,7 @@ class RetrievalParameter(slots=True):
 
 
 def convert_area_ratio_to_radius(
-    area_ratio: float | ArrayLike[np.float_], dist: float
+    area_ratio: float | NDArray[np.float_], dist: float
 ) -> float:
     return 10**area_ratio * dist**2 * PARSEC_IN_REARTH**2
 
@@ -243,8 +243,8 @@ def calculate_wavelength_calibration_limits(
 
 
 def calculate_wavelength_limits(
-    wavelo: ArrayLike[float],
-    wavehi: ArrayLike[float],
+    wavelo: NDArray[np.float_],
+    wavehi: NDArray[np.float_],
     deltaL_parameter: RetrievalParameter | None = None,
 ) -> tuple[float]:
     minDL, maxDL = calculate_wavelength_calibration_limits(deltaL_parameter)
@@ -335,7 +335,7 @@ def set_model_wavelengths_from_opacity_tables_and_data(
     )
 
     opacdir: str = opacity_parameters.opacdir
-    opacity_catalog_name: str = opacity_parameters.opacity_catalog_name
+    opacity_catalog_name: str = opacity_parameters.hires
     degrade: int | float = opacity_parameters.degrade
     unbanded_opacity_wavelengths: NDArray[np.float_] = (
         get_unbanded_wavelengths_from_opacity_tables(
@@ -552,16 +552,20 @@ def set_up_PyPlanet(
 
     TP_model_switch: int = set_TP_model_index(atmtype)
 
-    gas_opacity_directory: Pathlike = opacity_parameters.opacdir
-    opacity_catalog_name: str = opacity_parameters.hires
-    Teff_opacity_catalog_name: str = opacity_parameters.lores
+    gas_opacity_directory: Pathlike = opacity_parameters.opacdir.encode("utf-8")
+    opacity_catalog_name: str = opacity_parameters.hires.encode("utf-8")
+    Teff_opacity_catalog_name: str = opacity_parameters.lores.encode("utf-8")
 
-    return CPlanetBlueprint(
+    switches: SwitchBlueprint = SwitchBlueprint(
         observation_mode_index=observation_mode_index,
         cloud_model_index=cloud_model_index,
         hazetype_index=hazetype_index,
         number_of_streams=number_of_streams,
         TP_model_switch=TP_model_switch,
+    )
+
+    planet_make_parameters: CPlanetBlueprint = CPlanetBlueprint(
+        switches=switches,
         model_wavelengths=model_wavelengths,
         Teff_calculation_wavelengths=Teff_calculation_wavelengths,
         gas_species_indices=gas_species_indices,
@@ -569,3 +573,7 @@ def set_up_PyPlanet(
         opacity_catalog_name=opacity_catalog_name,
         Teff_opacity_catalog_name=Teff_opacity_catalog_name,
     )
+
+    planet = PyPlanet()
+    planet.MakePlanet(*planet_make_parameters)
+    return planet
