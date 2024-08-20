@@ -41,6 +41,12 @@ RJUPITER_IN_REARTH: Final[float] = 11.2
 PARSEC_IN_REARTH: Final[float] = 4.838e9
 
 
+class ObservationMode(Enum):
+    RESOLVED = 0
+    ECLIPSE = 1
+    TRANSIT = 2
+
+
 class RadiusInputType(StrEnum):
     Rad = auto()
     RtoD = auto()

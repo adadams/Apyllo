@@ -1,5 +1,4 @@
 import sys
-from os import path
 from os.path import abspath
 from pathlib import Path
 from typing import Final
@@ -14,7 +13,7 @@ from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
     read_APOLLO_data_into_dataset,
 )
 from apollo.spectrum.Spectrum_measured_using_xarray import DataSpectrum  # noqa: E402
-from dataset.IO import prep_and_save_dataset
+from dataset.IO import prep_and_save_dataset  # noqa: E402
 
 # %%
 DATA_DIRECTORY: Final = Path.home() / "Documents/Astronomy/2019/Retrieval/Code/Data"

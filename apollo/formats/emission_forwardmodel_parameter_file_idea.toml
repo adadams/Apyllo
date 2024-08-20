@@ -1,0 +1,29 @@
+[settings]
+Mode = 'Resolved'
+Object = '2M2236.Piette.G395H.cloud-free.2024-02-27.continuation'
+Parallel = true
+Data = '/rhome/arthura/APOLLO/data/2M2236b_NIRSpec_G395H_R500_APOLLO.dat'
+Convolve = 1
+Binning = 1
+Degrade = 1
+Sampler = 'dynesty'
+Tables = [ 'jwst50k', 'lores' ]
+Pressure = [ -4.0, 2.5 ]
+Streams = 2
+Opacities = '/rhome/arthura/bigdata/APOLLO_data/Opacities_0v10'
+
+[parameters.fundamental]
+radius = {}
+log_gravity = {}
+
+[parameters.materials.gases_from_crosssections_with_uniform_abundances]
+h2o =      { MLE=-3.18, Mu=-3.60, Sigma=0.03, Min=-12.00, Max=-1.00, Lower=0.02, Higher=0.03 }
+co =       { MLE=-3.83, Mu=-3.52, Sigma=0.04, Min=-12.00, Max=-1.00, Lower=0.04, Higher=0.04 }
+co2 =      { MLE=-6.96, Mu=-6.96, Sigma=0.01, Min=-12.00, Max=-1.00, Lower=0.01, Higher=0.01 }
+ch4 =      { MLE=-3.54, Mu=-3.54, Sigma=0.01, Min=-12.00, Max=-1.00, Lower=0.01, Higher=0.01 }
+Lupu_alk = { MLE=-5.46, Mu=-6.25, Sigma=0.03, Min=-12.00, Max=-1.00, Lower=0.01, Higher=0.01 }
+h2s =      { MLE=-4.56, Mu=-4.56, Sigma=0.01, Min=-12.00, Max=-1.00, Lower=0.01, Higher=0.01 }
+nh3 =      { MLE=-3.54, Mu=-3.54, Sigma=0.01, Min=-12.00, Max=-1.00, Lower=0.01, Higher=0.01 }
+
+[parameters.materials.clouds_with_powerlaw_opacity]
+placeholder_setting = "placeholder_value"

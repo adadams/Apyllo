@@ -2,8 +2,9 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from os.path import abspath
-from typing import Any, Final, Optional
+from typing import Any, Final, NamedTuple, Optional
 
+import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
@@ -22,7 +23,8 @@ from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
 )
 from apollo.planet import CPlanetBlueprint, SwitchBlueprint  # noqa: E402
 from apollo.spectrum.band_bin_and_convolve import (  # noqa: E402
-    find_band_limits_from_wavelength_bins,  # noqa: E402
+    find_band_limits_from_wavelength_bins,
+    get_wavelengths_from_wavelength_bins,  # noqa: E402
 )
 from apollo.src.wrapPlanet import PyPlanet  # noqa: E402
 from custom_types import Pathlike  # noqa: E402
@@ -121,6 +123,11 @@ def convert_area_parameter_to_radius_parameter(
     return RetrievalParameter(radius, guess, mu, sigma, bounds)
 
 
+class SpectrumWithWavelengths(msgspec.Struct):
+    wavelengths: NDArray[np.float_]
+    flux: NDArray[np.float_]
+
+
 @dataclass
 class DataContainer:
     # NOTE: this is a clone of an existing container for APOLLO-style data.
@@ -128,6 +135,13 @@ class DataContainer:
     wavehi: NDArray[np.float_]
     wavemid: Optional[NDArray[np.float_]]
     flux: NDArray[np.float_]
+
+    def make_spectrum(self) -> SpectrumWithWavelengths:
+        wavelengths: NDArray[np.float_] = get_wavelengths_from_wavelength_bins(
+            wavelength_bin_starts=self.wavelo, wavelength_bin_ends=self.wavehi
+        )
+
+        return SpectrumWithWavelengths(wavelengths=wavelengths, flux=self.flux)
 
 
 @dataclass
@@ -166,8 +180,7 @@ def read_in_observations(datain: Pathlike) -> DataContainerwithErrors:
     return DataContainerwithErrors(wavelo, wavehi, wavemid, flux, errlo, errhi)
 
 
-@dataclass
-class BandSpecs:
+class BandSpecs(NamedTuple):
     bandindex: list[tuple]
     modindex: NDArray[np.int_]
     modwave: NDArray[np.float_]
@@ -399,17 +412,14 @@ def normalize_banded_data(
     )
 
 
-@dataclass
-class ModelSpectrumBinIndices:
-    ibinlo: float
-    ibinhi: float
-    delibinlo: float
-    delibinhi: float
+class BinIndices(NamedTuple):
+    lower_bin_index: NDArray[np.float_]
+    upper_bin_index: NDArray[np.float_]
 
 
 def get_model_spectral_bin_indices(
     modwave: NDArray[np.float_], binlo, binhi
-) -> ModelSpectrumBinIndices:
+) -> tuple[BinIndices, BinIndices]:
     bins = af.GetBins(modwave, binlo, binhi)
     ibinlo = bins[0]
     ibinhi = bins[1]
@@ -421,7 +431,7 @@ def get_model_spectral_bin_indices(
     delibinlo = delbins[0] - ibinlo
     delibinhi = delbins[1] - ibinhi
 
-    return ModelSpectrumBinIndices(ibinlo, ibinhi, delibinlo, delibinhi)
+    return BinIndices(ibinlo, ibinhi), BinIndices(delibinlo, delibinhi)
 
 
 def get_indices_of_molecular_species(list_of_gases: list[str]) -> NDArray[np.int_]:

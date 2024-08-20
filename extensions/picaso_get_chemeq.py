@@ -1,17 +1,12 @@
-from astropy import units as u
+import os
 from functools import partial
 from inspect import signature
-import numpy as np
-import os
-
-FILENAME_DB = os.path.join(
-    os.environ.get("picaso_refdata"), "opacities", "opacities.db"
-)
-print(FILENAME_DB)
 from pathlib import Path
-from picaso import justdoit as jdi
 from typing import Callable
-import xarray as xr
+
+import numpy as np
+from astropy import units as u
+from picaso import justdoit as jdi
 from xarray import DataArray
 
 FILENAME_DB = os.path.join(
@@ -102,7 +97,6 @@ def find_photospheric_pressure(
 
 
 def provide_parameters_from_dataset(function: Callable, dataset: DataArray):
-
     def evaluate_from_dataset(function: Callable, dataset: DataArray, *args, **kwargs):
         dataset_parameters = {
             parameter.name: dataset.get(parameter.name).to_numpy()

@@ -1,0 +1,6 @@
+save_name = "wide-jwst"
+list_of_molecules = ["h2", "h2o", "co", "co2", "ch4", "nh3", "h2s", "na", "k"]
+minimum_wavelength = 0.6
+maximum_wavelength = 5.3
+new_resolution = 10_000
+combine_alkalis = true

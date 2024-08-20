@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
-type Pathlike = str | Path
+Pathlike = Union[str, Path]
 
 
 def load_APOLLO_opacity_file(filepath: Pathlike) -> NDArray[np.float_]:
@@ -59,14 +59,4 @@ def load_and_combine_alkalis(
 
     return combine_alkalis(
         Na_opacities, K_opacities, header_information, output_filename
-    )
-
-
-if __name__ == "__main__":
-    NA_OPACITY_FILEPATH = ""
-    K_OPACITY_FILEPATH = ""
-    ALKALI_OUTPUT_FILEPATH = ""
-
-    load_and_combine_alkalis(
-        NA_OPACITY_FILEPATH, K_OPACITY_FILEPATH, ALKALI_OUTPUT_FILEPATH
     )

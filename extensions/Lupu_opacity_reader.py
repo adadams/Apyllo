@@ -1,7 +1,11 @@
-import numpy as np
-from os.path import isfile
-import picaso.opacity_factory as opa_fac
 import time
+from os.path import isfile
+from pathlib import Path
+from typing import Union
+
+import numpy as np
+import picaso.opacity_factory as opa_fac
+from combine_alkalis import load_and_combine_alkalis
 
 
 def run_picaso_opacity_factory(
@@ -22,7 +26,7 @@ def run_picaso_opacity_factory(
         for molecule in list_of_molecules:
             start_time = time.time()
             print("Inserting: " + molecule)
-            new_waveno_grid = opa_fac.insert_molecular_1460(
+            opa_fac.insert_molecular_1460(
                 molecule,
                 minimum_wavelength,
                 maximum_wavelength,
@@ -117,14 +121,15 @@ def prepare_opacity_table(
     return final_data
 
 
-def generate_opacities(
-    original_opacity_directory,
-    save_name,
-    list_of_molecules,
-    minimum_wavelength,
-    maximum_wavelength,
-    new_resolution,
-):
+def generate_opacity_files(
+    original_opacity_directory: Union[str, Path],
+    save_name: Union[str, Path],
+    list_of_molecules: list[str],
+    minimum_wavelength: float,
+    maximum_wavelength: float,
+    new_resolution: float,
+    combine_alkalis: bool = False,
+) -> list[Path]:
     new_opacity_database_filepath = run_picaso_opacity_factory(
         original_opacity_directory,
         save_name,
@@ -136,8 +141,12 @@ def generate_opacities(
         function=opa_fac.insert_molecular_1460,
     )
 
+    output_opacity_filepaths = []
     for molecule in list_of_molecules:
-        if not isfile(f"{molecule.lower()}.{save_name}.dat"):
+        if isfile(f"{molecule.lower()}.{save_name}.dat"):
+            print(f"Opacity table for {molecule} already exists.")
+
+        else:
             print(f"Generating table for {molecule}.")
             prepare_opacity_table(
                 new_opacity_database_filepath,
@@ -148,7 +157,22 @@ def generate_opacities(
                 save_name,
             )
 
-    return None
+        output_opacity_filepaths.append(
+            Path.cwd() / f"{molecule.lower()}.{save_name}.dat"
+        )
+
+    if combine_alkalis:
+        alkali_output_filename = f"Lupu_alk.{save_name}.dat"
+
+        load_and_combine_alkalis(
+            Na_opacity_filepath=Path.cwd() / f"na.{save_name}.dat",
+            K_opacity_filepath=Path.cwd() / f"k.{save_name}.dat",
+            output_filename=alkali_output_filename,
+        )
+
+        output_opacity_filepaths.append(alkali_output_filename)
+
+    return output_opacity_filepaths
 
 
 # To do: store a csv file where when you make a new set of opacities,

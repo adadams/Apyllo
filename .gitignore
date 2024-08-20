@@ -34,3 +34,5 @@ apollo/test_msgspec.py
 apollo/test_piette_models.py
 apollo/submodels/test_function_model.py
 apollo/submodels/test_function_model.py
+apollo/test_unpack_dataclass.py
+test_helium_spec.py
