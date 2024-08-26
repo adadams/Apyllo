@@ -1,5 +1,5 @@
 from collections import ChainMap
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import reduce
 from inspect import Signature
 from typing import Any
@@ -11,7 +11,7 @@ from numpy.typing import NDArray
 from custom_types import Pathlike
 
 
-def compose(*functions):
+def compose(*functions: Sequence[Callable]) -> Callable:
     return reduce(lambda f, g: lambda x: g(f(x)), functions)
 
 
@@ -19,7 +19,7 @@ def count_number_of_arguments(function: Callable) -> int:
     return len(Signature.from_callable(function).parameters)
 
 
-def load_multi_yaml_file_into_dict(filepath: Pathlike):
+def load_multi_yaml_file_into_dict(filepath: Pathlike) -> dict[str, Any]:
     with open(filepath, "r") as multi_file:
         loaded_file = yaml.safe_load_all(multi_file)
 

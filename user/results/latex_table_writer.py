@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from xarray import Dataset
 
@@ -7,7 +7,7 @@ from apollo.retrieval.results.manipulate_results_datasets import (
     calculate_percentile,
 )
 from custom_types import Pathlike
-from dataset.accessors import load_dataset_with_units
+from dataset.accessors import load_and_prep_dataset
 
 
 def format_percentile_for_latex(
@@ -90,7 +90,7 @@ def load_results_dataset_and_store_formatted_table_text(
     formatting_function: Callable[[Dataset], Dataset],
     radius_units: str = "Jupiter_radii",
 ) -> Dataset:
-    samples_dataset: Dataset = load_dataset_with_units(samples_dataset_filepath)
+    samples_dataset: Dataset = load_and_prep_dataset(samples_dataset_filepath)
 
     if "Rad" in samples_dataset.data_vars:
         samples_dataset["Rad"] = samples_dataset["Rad"].pint.to(radius_units)

@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from numpy import percentile
 from xarray import Dataset, apply_ufunc

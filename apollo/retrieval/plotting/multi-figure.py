@@ -1,9 +1,10 @@
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
 from os.path import abspath
-from typing import Protocol, Sequence, TypedDict
+from typing import Protocol, TypedDict
 
 import numpy as np
 from matplotlib import pyplot as plt

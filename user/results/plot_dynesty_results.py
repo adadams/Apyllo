@@ -1,4 +1,3 @@
-import pickle
 import sys
 from os.path import abspath
 from pathlib import Path
@@ -12,16 +11,13 @@ APOLLO_DIRECTORY = abspath(
 sys.path.append(APOLLO_DIRECTORY)
 
 
-from apollo.convenience_types import Pathlike  # noqa: E402
-from apollo.retrieval.dynesty.dynesty_plotting_functions import (  # noqa: E402
+from apollo.retrieval.results.IO import unpack_results_filepaths  # noqa: E402
+from apollo.retrieval.samplers.dynesty.dynesty_plotting_functions import (  # noqa: E402
     make_combined_TP_profile_plot,
     make_corner_plots,
     make_multi_plots,
-    plot_MLE_spectrum_of_one_run_against_different_data,
 )
-from apollo.retrieval.dynesty.parse_dynesty_outputs import (  # noqa: E402
-    unpack_results_filepaths,
-)
+from custom_types import Pathlike  # noqa: E402
 from user.results.process_dynesty_results import RESULTS_DIRECTORY  # noqa: E402
 from user_directories import USER_DIRECTORIES  # noqa: E402
 

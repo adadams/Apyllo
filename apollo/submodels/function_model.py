@@ -1,6 +1,7 @@
 import inspect
+from collections.abc import Callable
 from functools import partial
-from typing import Any, Callable, Self
+from typing import Any, Self
 
 import msgspec
 import numpy as np

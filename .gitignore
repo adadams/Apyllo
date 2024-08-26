@@ -36,3 +36,6 @@ apollo/submodels/test_function_model.py
 apollo/submodels/test_function_model.py
 apollo/test_unpack_dataclass.py
 test_helium_spec.py
+extensions/writeh2.50k.cpp
+extensions/writehe.nir.cpp
+extensions/check_hespec.py

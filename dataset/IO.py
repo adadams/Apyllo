@@ -1,7 +1,7 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
-from typing import Final, Sequence
+from typing import Final
 
 from pint import UnitRegistry
 from pint_xarray import setup_registry
@@ -84,7 +84,9 @@ prep_dataset_for_saving: Callable[[Dataset], Dataset] = compose(
 
 def prep_and_save_dataset(
     dataset: Dataset, *to_netcdf_args, **to_netcdf_kwargs
-) -> None:
+) -> Dataset:
     prepped_dataset: Dataset = prep_dataset_for_saving(dataset)
 
-    return prepped_dataset.to_netcdf(*to_netcdf_args, **to_netcdf_kwargs)
+    prepped_dataset.to_netcdf(*to_netcdf_args, **to_netcdf_kwargs)
+
+    return prepped_dataset

@@ -1,7 +1,7 @@
 import sys
+from collections.abc import Sequence
 from os.path import abspath
 from pprint import pprint
-from typing import Sequence
 
 import numpy as np
 from xarray import DataArray, Dataset
@@ -13,10 +13,10 @@ sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.retrieval.results.IO import unpack_results_filepaths  # noqa: E402
 from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
-    read_apollo_data_into_DataSpectrum,  # noqa: E402
+    read_APOLLO_data_into_dataset,
 )
 from custom_types import Pathlike  # noqa: E402
-from dataset.IO import load_dataset_with_units  # noqa: E402
+from dataset.IO import load_and_prep_dataset  # noqa: E402
 from user.results.process_dynesty_results import RESULTS_DIRECTORY  # noqa: E402
 
 
@@ -79,11 +79,11 @@ def calculate_reduced_chi_square_for_runs(
         MLE_spectrum_filepath = results_filepaths["MLE_model_spectrum"]
         samples_dataset_filepath = results_filepaths["samples_dataset"]
 
-        data: Dataset = read_apollo_data_into_DataSpectrum(data_filepath)
+        data: Dataset = read_APOLLO_data_into_dataset(data_filepath)
         error_terms: DataArray = data.lower_errors.pint.dequantify()
         _, _, model_spectrum, *_ = np.loadtxt(MLE_spectrum_filepath).T
 
-        samples_dataset: Dataset = load_dataset_with_units(samples_dataset_filepath)
+        samples_dataset: Dataset = load_and_prep_dataset(samples_dataset_filepath)
 
         maximum_log_likelihood: float = samples_dataset.log_likelihood.max().item()
 

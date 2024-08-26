@@ -1,12 +1,12 @@
 import pickle
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 from numpy.typing import NDArray
 
 import dynesty
-from custom_types import Pathlike
 from apollo.retrieval.results.IO import SamplingResults
+from custom_types import Pathlike
 
 
 def load_dynesty_results(filepath: Pathlike) -> dynesty.results.Results:

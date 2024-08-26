@@ -1,13 +1,11 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, Callable, TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
 from pandas.compat import pickle_compat
 from pint import Unit
-
-# from tqdm import tqdm
 from xarray import Coordinates, DataArray, Dataset, Variable, apply_ufunc
 
 from apollo.make_forward_model_from_file import (

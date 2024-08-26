@@ -1,7 +1,7 @@
 import sys
+from collections.abc import Sequence
 from os.path import abspath
 from pathlib import Path
-from typing import Sequence
 
 from xarray import Dataset
 

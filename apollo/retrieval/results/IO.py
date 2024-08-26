@@ -1,19 +1,20 @@
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from operator import itemgetter
 from os.path import abspath
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 import tomllib
 from numpy.typing import NDArray
 from xarray import Dataset
 
-from custom_types import Pathlike  # noqa: E402
 from apollo.retrieval.results.manipulate_results_datasets import (  # noqa: E402
     change_parameter_values_using_MLE_dataset,
 )
+from custom_types import Pathlike  # noqa: E402
 from useful_internal_functions import load_multi_yaml_file_into_dict
 from user.forward_models.inputs.parse_APOLLO_inputs import (  # noqa: E402
     change_properties_of_parameters,
