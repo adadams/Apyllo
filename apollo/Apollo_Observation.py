@@ -1,8 +1,9 @@
 import sys
 from os.path import abspath
+from typing import NamedTuple, Protocol, TypedDict
 
 import numpy as np
-from numpy.typing import NDArray
+from nptyping import NDArray, Shape
 
 APOLLO_DIRECTORY = abspath(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
@@ -37,16 +38,24 @@ G395_ch2_boundaries = [4.15, 5.3]
 
 
 def calculate_solid_angle(
-    radius_case: RadiusInputType, radius_parameter, dist
+    radius_case: RadiusInputType, radius_parameter: float, distance_to_system: float
 ) -> float:
     if radius_case == "Rad":
-        theta_planet = (radius_parameter * REarth_in_cm) / (dist * parsec_in_cm)
+        theta_planet = (radius_parameter * REarth_in_cm) / (
+            distance_to_system * parsec_in_cm
+        )
     elif radius_case == "RtoD":
         theta_planet = 10**radius_parameter
     elif radius_case == "RtoD2U":
-        theta_planet = np.sqrt(radius_parameter) * REarth_in_cm / (dist * parsec_in_cm)
+        theta_planet = (
+            np.sqrt(radius_parameter)
+            * REarth_in_cm
+            / (distance_to_system * parsec_in_cm)
+        )
     else:
-        theta_planet = (RJup_in_REarth * REarth_in_cm) / (dist * parsec_in_cm)
+        theta_planet = (RJup_in_REarth * REarth_in_cm) / (
+            distance_to_system * parsec_in_cm
+        )
 
     return theta_planet**2
 
@@ -83,71 +92,127 @@ def normalize_spectrum(
 
 
 def bin_and_convolve_model(
-    full_resolution_observed_model: BandSpecs,  # i.e. substitute normspec for modflux
+    full_resolution_observed_model: NDArray[np.float_],
+    band_index: list[tuple],
+    model_spectrum_indices: NDArray[np.int_],
     bin_indices: BinIndices,
     convolving_factor: float,
     binning_factor: float,
 ) -> NDArray[np.float_]:
-    normspec, modindex, bandindex = full_resolution_observed_model
+    lower_bin_indices, upper_bin_indices = bin_indices
 
-    lower_bin_index, upper_bin_index = bin_indices
-
-    binw: float = (lower_bin_index[1] - lower_bin_index[0]) * (
+    binw: float = (lower_bin_indices[1] - lower_bin_indices[0]) * (
         convolving_factor / binning_factor
     )
 
-    convmod: list[NDArray[np.float_]] = []
-    for i in range(0, len(modindex)):
-        convmod.append(ConvSpec(normspec[modindex[i][0] : modindex[i][1]], binw))
-    convmod = [item for sublist in convmod for item in sublist]
-    # convmod = af.ConvSpec(fincident,binw)
-    # convmod = fincident
+    # convmod: list[NDArray[np.float_]] = []
+    # for i in range(0, len(modindex)):
+    #    convmod.append(ConvSpec(normspec[modindex[i][0] : modindex[i][1]], binw))
 
-    binmod_list: list[NDArray[np.float_]] = []
-    for i in range(0, len(modindex)):
-        binmod_piece = BinModel(
-            convmod,
-            lower_bin_index[bandindex[i][0] : (bandindex[i][1] + 1)],
-            upper_bin_index[bandindex[i][0] : (bandindex[i][1] + 1)],
+    convmod: list[NDArray[np.float_]] = [
+        ConvSpec(
+            flux=full_resolution_observed_model[model_index_start:model_index_end],
+            bin_width=binw,
         )
-        binmod_list.append(binmod_piece)
+        for model_index_start, model_index_end in zip(
+            model_spectrum_indices[:-1], model_spectrum_indices[1:]
+        )
+    ]
+    convmod: list[float] = [item for sublist in convmod for item in sublist]
 
-    binmod = [item for sublist in binmod_list for item in sublist]
+    binmod: list[NDArray[np.float_]] = [
+        BinModel(
+            flux=convmod,
+            binlo=lower_bin_indices[band_start_index : band_end_index + 1],
+            binhi=upper_bin_indices[band_start_index : band_end_index + 1],
+        )
+        for band_start_index, band_end_index in zip(band_index[:-1], band_index[1:])
+    ]
 
-    return binmod
+    return np.array([item for sublist in binmod for item in sublist])
+
+
+# NOTE: How can this be combined with the ParameterValue class?
+class FluxScaler(NamedTuple):
+    band_lower_wavelength_boundary: float
+    band_upper_wavelength_boundary: float
+    scale_factor: NDArray[np.float_]
 
 
 def scale_flux_by_band(
-    flux: np.ndarray,
-    wavelengths: np.ndarray,
-    band_lower_wavelength_boundary: float,
-    band_upper_wavelength_boundary: float,
-    scale_factor: float,
+    spectral_quantity: SpectrumWithWavelengths,
+    flux_scaler: FluxScaler,
 ) -> np.ndarray:
+    wavelengths = spectral_quantity.wavelengths
+    flux = spectral_quantity.flux
+
     return np.where(
         np.logical_and(
-            band_lower_wavelength_boundary <= wavelengths,
-            wavelengths <= band_upper_wavelength_boundary,
+            flux_scaler.band_lower_wavelength_boundary <= wavelengths,
+            wavelengths < flux_scaler.band_upper_wavelength_boundary,
         ),
-        flux * scale_factor,
+        flux * flux_scaler.scale_factor,
         flux,
     )
 
 
+class AngleScaler(TypedDict):
+    radius_case: RadiusInputType
+    radius_parameter: float
+    distance_to_system: float
+
+
 def make_observation_at_full_resolution(
-    model_wavelengths: NDArray[np.float_],
+    spectrum_at_system: SpectrumWithWavelengths,
     observing_mode: ObservationMode,
-    spectral_quantity_at_system: NDArray[np.float_],
-    radius_case: RadiusInputType,
-    radius_parameter: float,
-    distance_to_system: float,
+    angle_scaler: AngleScaler,
 ) -> SpectrumWithWavelengths:
+    model_wavelengths, spectral_quantity_at_system = spectrum_at_system
+
     spectral_quantity_at_observer: NDArray[np.float_] = (
         spectral_quantity_at_system
         if observing_mode == ObservationMode.TRANSIT
-        else spectral_quantity_at_system
-        * calculate_solid_angle(radius_case, radius_parameter, dist=distance_to_system)
+        else spectral_quantity_at_system * calculate_solid_angle(**angle_scaler)
+    )
+
+    return SpectrumWithWavelengths(
+        wavelengths=model_wavelengths,
+        flux=spectral_quantity_at_observer,
     )
 
 
-def make_observation_at_binned_resolution() -> SpectrumWithWavelengths: ...
+"""
+class BandSpecs(NamedTuple):
+    bandindex: list[tuple]
+    modindex: NDArray[np.int_]
+    modwave: NDArray[np.float_]
+"""
+
+
+def make_observation_at_binned_resolution(
+    observation_at_full_resolution: SpectrumWithWavelengths,
+    band_index: list[tuple],
+    model_spectrum_indices: NDArray[np.int_],
+    bin_indices: BinIndices,
+    convolving_factor: float,
+    binning_factor: float,
+) -> SpectrumWithWavelengths:
+    band_specs: BandSpecs = BandSpecs(
+        bandindex=band_index,
+        modindex=model_spectrum_indices,
+        modwave=observation_at_full_resolution.wavelengths,
+    )
+
+    return bin_and_convolve_model(
+        full_resolution_observed_model=observation_at_full_resolution.flux,
+        band_specs=band_specs,
+        bin_indices=bin_indices,
+        convolving_factor=convolving_factor,
+        binning_factor=binning_factor,
+    )
+
+
+class SpectrumScaler(Protocol):
+    def __call__(
+        self, spectrum: NDArray[Shape["original_number_of_wavelengths"]]
+    ) -> NDArray[Shape["original_number_of_wavelengths"]]: ...

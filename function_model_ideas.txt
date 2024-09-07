@@ -1,2 +1,0 @@
-The core function model idea is to store "important" metadata for each function.
-Since each 

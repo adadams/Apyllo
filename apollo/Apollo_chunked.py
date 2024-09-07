@@ -3,6 +3,9 @@ from collections.abc import Callable
 from os.path import abspath
 from typing import NamedTuple
 
+import numpy as np
+from numpy.typing import NDArray
+
 from apollo.Apollo_Planet_GetModel import get_fractional_cloud_spectrum, get_spectrum
 from apollo.Apollo_Planet_SetParameters import (
     Params1Blueprint,
@@ -162,8 +165,12 @@ def generate_emission_spectrum_from_APOLLO_file(
 
     planet.set_Params(*parameters_for_planet)
 
-    model_spectrum_fraction: Callable = (
+    model_spectrum_function: Callable = (
         get_spectrum if cloud_filling_fraction == 1.0 else get_fractional_cloud_spectrum
     )
 
-    return model_spectrum_fraction(planet)
+    spectral_quantity_at_system: NDArray[np.float_] = model_spectrum_function(planet)
+
+    observed_spectrum_function: Callable = ...
+
+    return model_spectrum_function(planet)

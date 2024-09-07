@@ -72,14 +72,16 @@ class WavelengthBins:
 
 
 @dataclass
-class BinIndices:
+class FractionalBinIndices:
     ibinlo: NDArray[np.int_]
     ibinhi: NDArray[np.int_]
     fbinlo: NDArray[np.float_]
     fbinhi: NDArray[np.float_]
 
 
-def GetBinIndices(original_number_of_wavelengths: int, binw: int | float) -> BinIndices:
+def GetBinIndices(
+    original_number_of_wavelengths: int, binw: int | float
+) -> FractionalBinIndices:
     blen: int = int(original_number_of_wavelengths / binw)
 
     ibinlo: NDArray[np.float_] = np.arange(blen) * binw
@@ -94,11 +96,11 @@ def GetBinIndices(original_number_of_wavelengths: int, binw: int | float) -> Bin
     fbinlo[fbinlo == 0.0] = SMALL_NUDGE
     fbinhi[fbinhi == 0.0] = SMALL_NUDGE
 
-    return BinIndices(ibinlo, ibinhi, fbinlo, fbinhi)
+    return FractionalBinIndices(ibinlo, ibinhi, fbinlo, fbinhi)
 
 
 def BinWavelengths(
-    wavelo: ArrayLike, wavehi: ArrayLike, bin_indices: BinIndices
+    wavelo: ArrayLike, wavehi: ArrayLike, bin_indices: FractionalBinIndices
 ) -> WavelengthBins:
     if len(wavelo) != len(wavehi):
         raise ValueError(
@@ -126,7 +128,9 @@ def BinWavelengths(
     return WavelengthBins(wavelength_bin_starts=binlo, wavelength_bin_ends=binhi)
 
 
-def BinFlux(flux: ArrayLike, binw: int | float, bin_indices: BinIndices) -> ArrayLike:
+def BinFlux(
+    flux: ArrayLike, binw: int | float, bin_indices: FractionalBinIndices
+) -> ArrayLike:
     int_upper_ibinlo: NDArray[np.int_] = np.ceil(bin_indices.ibinlo).astype(int)
     int_lower_ibinhi: NDArray[np.int_] = np.floor(bin_indices.ibinhi).astype(int)
 
@@ -159,7 +163,7 @@ def BinFlux(flux: ArrayLike, binw: int | float, bin_indices: BinIndices) -> Arra
 
 
 def BinFluxErrors(
-    flux_errors: ArrayLike, binw: int | float, bin_indices: BinIndices
+    flux_errors: ArrayLike, binw: int | float, bin_indices: FractionalBinIndices
 ) -> ArrayLike:
     binned_errors: ArrayLike = BinFlux(flux_errors, binw, bin_indices)
 
@@ -169,7 +173,7 @@ def BinFluxErrors(
 
 def BinSpec(wavelo, wavehi, flux, binw):
     number_of_wavelengths: int = len(wavelo)
-    bin_indices: BinIndices = GetBinIndices(number_of_wavelengths, binw)
+    bin_indices: FractionalBinIndices = GetBinIndices(number_of_wavelengths, binw)
 
     binned_wavelengths: WavelengthBins = BinWavelengths(
         wavelo, wavehi, bin_indices, binw
@@ -186,7 +190,7 @@ def BinSpec(wavelo, wavehi, flux, binw):
 
 def BinSpecwithErrors(wavelo, wavehi, flux, err, binw):
     number_of_wavelengths: int = len(wavelo)
-    bin_indices: BinIndices = GetBinIndices(number_of_wavelengths, binw)
+    bin_indices: FractionalBinIndices = GetBinIndices(number_of_wavelengths, binw)
 
     binned_wavelengths: WavelengthBins = BinWavelengths(wavelo, wavehi, bin_indices)
 
