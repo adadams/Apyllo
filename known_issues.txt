@@ -32,3 +32,6 @@
 
 (11b) Would like to find out the source of the "hespec.dat" / "new_he.dat" that is used to generate Helium opacities.
      Maximum temperature was listed as 4000 K but temperature grid spacing implies max is 3500.
+
+(12) Binning indices with deltaL may introduce unexpected artifacts (seen in reduced chi-squared with self-retrievals) when the bounds
+     are of order a typical wavelength bin in your data/final binned spectrum.

@@ -12,11 +12,11 @@
 
 #######################################################################
 
-    [configuration.observation.resolved] # presence implies observation mode is "resolved"
+    [configuration.observation.resolved] # just the presence implies observation mode is "resolved"
     # there are no resolved-specific options but they would go here if they existed
     # here is what the transit option might look like:
 
-    # [configuration.observation.transit.star] 
+    # [configuration.observation.transit.star]
     # path_to_spectrum = 'None'
     # effective_temperature = 6516.0
     # radius_relative_to_solar = 1.86
@@ -40,7 +40,7 @@
 
     [configuration.fitting]
     results_output_directory = '/rhome/arthura/bigdata/samples'
-    run_in_parallel_model = true
+    run_in_parallel_mode = true
 
     [configuration.fitting.dynesty]  # sampler-specific configurations
         checkpoint_filepath = '/rhome/arthura/bigdata/samples/2M2236.Piette.G395H.cloud-free.2024-02-27.dynesty_checkpoint.dat'
@@ -103,5 +103,5 @@
     white_noise_variance = -50.65 # { MLE=-10.00, Mu=-10.00, Sigma=0.10, Min=-100.00, Max=5.00, Lower=0.00, Higher=0.00 }
 
     [model.observation.scale_flux_by_constant_factor]
-        G395H_ch1 = 1.00 # { MLE=1.00,   Mu=1.00,   Sigma=0.01, Min=0.75,    Max=1.25, Lower=0.01, Higher=0.01 }
-        G395H_ch2 = 1.00 # { MLE=1.00,   Mu=1.00,   Sigma=0.01, Min=0.75,    Max=1.25, Lower=0.01, Higher=0.01 }
+        G395H_ch1 = {wavelength_start=0.75, wavelength_end=1.25, factor = 1.00 } # { MLE=1.00,   Mu=1.00,   Sigma=0.01, Min=0.75,    Max=1.25, Lower=0.01, Higher=0.01 }
+        G395H_ch2 = {wavelength_start=0.75, wavelength_end=1.25, factor = 1.00 } # { MLE=1.00,   Mu=1.00,   Sigma=0.01, Min=0.75,    Max=1.25, Lower=0.01, Higher=0.01 }

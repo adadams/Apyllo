@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 from xarray import Dataset, load_dataset
 
 APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
 )
 sys.path.append(APOLLO_DIRECTORY)
 

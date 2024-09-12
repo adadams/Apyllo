@@ -6,7 +6,7 @@ from pathlib import Path
 from xarray import Dataset
 
 APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
 )
 sys.path.append(APOLLO_DIRECTORY)
 

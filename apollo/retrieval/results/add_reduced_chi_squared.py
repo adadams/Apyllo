@@ -7,7 +7,7 @@ import numpy as np
 from xarray import DataArray, Dataset
 
 APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
 )
 sys.path.append(APOLLO_DIRECTORY)
 

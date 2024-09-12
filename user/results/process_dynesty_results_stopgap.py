@@ -1,14 +1,13 @@
 import sys
 from dataclasses import dataclass
-from os.path import abspath
 from pathlib import Path
 from typing import Any
 
 from xarray import Dataset
 
-APOLLO_DIRECTORY = abspath(
+APOLLO_DIRECTORY = Path(
     "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
+).absolute()
 sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.retrieval.results.build_results_datasets import (  # noqa: E402

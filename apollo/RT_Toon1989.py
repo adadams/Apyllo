@@ -1,7 +1,8 @@
-from typing import Final
+from typing import Final, NamedTuple
 
 import numpy as np
 from numpy.typing import NDArray
+
 from useful_internal_functions import interleave
 
 c: Final[float] = 2.99792458e10  # in CGS
@@ -108,9 +109,24 @@ def thermal_intensity_by_layer(
     return thermal_intensity, delta_thermal_intensity
 
 
+class DsolverInputs(NamedTuple):
+    # cp, cpm1, cm, cmm1, ep, btop, bottom, gama
+    cp: NDArray[np.float_]  # size of array:
+    cpm1: NDArray[np.float_]
+    cm: NDArray[np.float_]
+    cmm1: NDArray[np.float_]
+    ep: NDArray[np.float_]
+    btop: NDArray[np.float_]
+    bottom: NDArray[np.float_]
+    gama: NDArray[np.float_]
+
+
 def calculate_terms_for_DSolver(
+    # size of array: (number_of_models, number_of_layers, number_of_wavelengths)
     optical_depth_per_layer: NDArray[np.float_],
+    # size of array: (number_of_models, number_of_layers, number_of_wavelengths)
     single_scattering_albedo: NDArray[np.float_],
+    # size of array: (number_of_models, number_of_layers, number_of_wavelengths)
     scattering_asymmetry: NDArray[np.float_],
     thermal_intensity: NDArray[np.float_],
     delta_thermal_intensity: NDArray[np.float_],
@@ -120,7 +136,7 @@ def calculate_terms_for_DSolver(
     tau = optical_depth_per_layer
     w0 = single_scattering_albedo
     g = scattering_asymmetry
-    tbfrac = 1  # INCOMPLETE IMPLEMENTATION
+    tbfrac: float = 1  # INCOMPLETE IMPLEMENTATION
     # tbase = getT(hmin)       # INCOMPLETE IMPLEMENTATION
     thermal_intensity_at_TOA = thermal_intensity[0] - delta_thermal_intensity[0] / 2
     thermal_intensity_at_base = thermal_intensity[-1] + delta_thermal_intensity[-1] / 2

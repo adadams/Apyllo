@@ -39,3 +39,5 @@ test_helium_spec.py
 extensions/writeh2.50k.cpp
 extensions/writehe.nir.cpp
 extensions/check_hespec.py
+apollo/RT_Toon1989_rust.rs
+test_array_typing.py

@@ -12,7 +12,7 @@ from matplotlib.gridspec import GridSpec
 from numpy.typing import NDArray
 
 APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
+    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
 )
 sys.path.append(APOLLO_DIRECTORY)
 

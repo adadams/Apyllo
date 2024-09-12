@@ -22,7 +22,6 @@ from dataset.accessors import (
     extract_dataset_subset_by_parameter_group,
     extract_free_parameters_from_dataset,
 )
-from dataset.builders import organize_parameter_data_in_xarray
 from dataset.IO import prep_and_save_dataset
 from user.forward_models.inputs.parse_APOLLO_inputs import parse_APOLLO_input_file
 
@@ -43,17 +42,32 @@ class RunDatasetBlueprint(TypedDict):
     log_likelihoods: Sequence[float]
 
 
+"""
+    parameter_name: organize_parameter_data_in_xarray(
+        name=parameter_name,
+        print_name="",
+        value=parameter_value,
+        unit=parameter_unit,
+        coords={"log_likelihood": run.log_likelihoods},
+        string_formatter=string_formatter,
+        base_group=parameter_group_name,
+    )
+"""
+
+
 def make_run_parameter_dataset(run: RunDatasetBlueprint) -> Dataset:
     return Dataset(
         {
-            parameter_name: organize_parameter_data_in_xarray(
-                name=parameter_name,
-                print_name="",
-                value=parameter_value,
-                unit=parameter_unit,
+            parameter_name: DataArray(
+                data=parameter_value,
+                dims=("log_likelihood",),
                 coords={"log_likelihood": run.log_likelihoods},
-                string_formatter=string_formatter,
-                base_group=parameter_group_name,
+                attrs={
+                    "units": parameter_unit,
+                    "print_name": parameter_name,
+                    "string_format": string_formatter,
+                    "base_group": parameter_group_name,
+                },
             )
             for parameter_name, parameter_value, parameter_unit, string_formatter, parameter_group_name in zip(
                 run.parameter_names,
@@ -209,6 +223,14 @@ def compile_results_into_dataset(
         prep_and_save_dataset(results_dataset, path=results_output_filepath)
 
     return results_dataset
+
+
+def compile_results_for_intermediate_processing(
+    results: SamplingResults,
+    input_parameters_filepath: Pathlike,
+    output_filepath_plus_prefix: Pathlike = None,
+    output_file_suffix: str = "samples.nc",
+) -> Dataset: ...
 
 
 def get_binned_wavelengths(MLE_parameters_filepath: Pathlike) -> NDArray[np.float_]:
