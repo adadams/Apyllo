@@ -237,8 +237,10 @@ output_opacity_grid: NDArray[np.float_] = calculate_opacities(
 
 
 def calculate_log_pressure(
-    minimum_log_pressure: float = 0.0,  # pressure in cgs units = 1e-6 bar = 0.1 Pa
-    maximum_log_pressure: float = 8.5,  # pressure in cgs units = 1e-6 bar = 0.1 Pa
+    minimum_log_pressure: float = config.minimum_log10_pressure_in_bars
+    + 6.0,  # pressure in cgs units = 1e-6 bar = 0.1 Pa
+    maximum_log_pressure: float = config.maximum_log10_pressure_in_bars
+    + 6.0,  # pressure in cgs units = 1e-6 bar = 0.1 Pa
     number_of_pressure_layers: int = config.number_of_pressure_points,
 ) -> NDArray[np.float_]:
     return np.logspace(
