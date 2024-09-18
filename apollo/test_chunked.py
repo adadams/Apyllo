@@ -19,4 +19,4 @@ emission_flux_at_surface = generate_emission_spectrum_from_APOLLO_file(
     TEST_2M2236_FILEPATH
 )
 
-# print(emission_flux_at_surface)
+print(f"{emission_flux_at_surface=}")

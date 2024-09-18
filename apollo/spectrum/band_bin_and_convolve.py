@@ -24,6 +24,25 @@ def get_wavelength_bins_from_wavelengths(
     return wavelength_bin_starts, wavelength_bin_ends
 
 
+def get_bin_spacings_from_wavelength_bins(
+    wavelength_bin_starts: ArrayLike,
+    wavelength_bin_ends: ArrayLike,
+) -> NDArray[np.float_]:
+    return np.subtract(wavelength_bin_ends, wavelength_bin_starts)
+
+
+def get_bin_spacings_from_wavelengths(
+    wavelengths: ArrayLike,
+) -> NDArray[np.float_]:
+    wavelength_bin_starts, wavelength_bin_ends = get_wavelength_bins_from_wavelengths(
+        wavelengths
+    )
+
+    return get_bin_spacings_from_wavelength_bins(
+        wavelength_bin_starts, wavelength_bin_ends
+    )
+
+
 def find_band_bounding_indices(
     wavelength_bin_starts: Sequence[float], wavelength_bin_ends: Sequence[float]
 ) -> tuple[int]:

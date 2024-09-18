@@ -1,0 +1,15 @@
+opacity_catalog_id = "nir"
+input_opacity_directory = "/home/Research/Opacities_0v10/gases"
+
+number_of_pressure_points = 18
+minimum_log10_pressure_in_bars = -6.0
+maximum_log10_pressure_in_bars = 2.5
+
+number_of_temperature_points = 36
+minimum_log10_temperature = 1.875061263 # i.e. 75 K
+maximum_log10_temperature = 3.599199194 # i.e. 4000 K
+
+minimum_wavelength_in_microns = 0.6
+maximum_wavelength_in_microns = 5.0
+mean_resolution = 10000
+

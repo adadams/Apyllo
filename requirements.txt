@@ -8,7 +8,7 @@ matplotlib==3.8.0
 numpy==1.26.4
 pandas==2.2.1
 Pint==0.23
-pint_xarray==0.3
+pint-xarray==0.3
 polars==0.20.18
 PyYAML==6.0.1
 PyYAML==6.0.1

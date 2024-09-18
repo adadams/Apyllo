@@ -36,8 +36,4 @@ def get_effective_temperature(cclass: PyPlanet) -> float:
     return cclass.get_Teff()
 
 
-def scale_flux(flux: NDArray[np.float_], scale_factor: float) -> NDArray[np.float_]:
-    return scale_factor * flux
-
-
 def set_observed_spectrum_function() -> Callable: ...

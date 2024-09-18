@@ -666,11 +666,58 @@ class CloudReadinParameters:
         return cloud_filling_fraction
 
 
+# NOTE: How can this be combined with the ParameterValue class?
+class FluxScaler(NamedTuple):
+    band_lower_wavelength_boundary: float
+    band_upper_wavelength_boundary: float
+    scale_factor: NDArray[np.float_]
+
+
 @dataclass
 class CalibrationReadinParameters:
     e1: int  # Index of first calibration ("end") parameter in list of parameters
     enum: int  # Number of calibration parameters
     end: list[str]  # List of calibration parameter names
+
+    def __post_init__(self):
+        self.e2 = self.e1 + self.enum
+
+    def bodge_calibration_parameters(
+        self, parameter_values: NDArray[np.float_]
+    ) -> dict[str, ParameterValue]:
+        calibration_parameter_values = parameter_values[self.e1 : self.e2]
+
+        return {
+            calibration_parameter_name: ParameterValue(
+                calibration_parameter_name, calibration_parameter_value
+            )
+            for calibration_parameter_name, calibration_parameter_value in zip(
+                self.end, calibration_parameter_values
+            )
+        }
+
+    def get_flux_scalers(
+        self,
+        parameter_values: NDArray[np.float_],
+        name_to_wavelength_range_mapper: dict[str, tuple[float, float]],
+    ) -> list[FluxScaler]:
+        calibration_parameters: dict[str, ParameterValue] = (
+            self.bodge_calibration_parameters(parameter_values)
+        )
+
+        scaler_parameters: dict[str, ParameterValue] = {
+            scaler_parameter_name: scaler_parameter_value
+            for scaler_parameter_name, scaler_parameter_value in calibration_parameters.items()
+            if "scale" in scaler_parameter_name
+        }
+
+        return [
+            FluxScaler(
+                *name_to_wavelength_range_mapper[scaler_parameter_name],
+                scaler_parameter_value.value,
+            )
+            for scaler_parameter_name, scaler_parameter_value in scaler_parameters.items()
+        ]
 
 
 class ReadinParametersBlueprint(TypedDict):

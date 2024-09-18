@@ -113,7 +113,9 @@ def SliceModel_bindex(
     return (j_starts, j_ends)
 
 
-def SliceModel_modindex(j_starts: Sequence[int], j_ends: Sequence[int]):
+def SliceModel_modindex(
+    j_starts: Sequence[int], j_ends: Sequence[int]
+) -> list[list[int]]:
     modindex = [[0]]
 
     for i, (js, je) in enumerate(zip(j_starts, j_ends)):

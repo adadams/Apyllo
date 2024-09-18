@@ -35,3 +35,5 @@
 
 (12) Binning indices with deltaL may introduce unexpected artifacts (seen in reduced chi-squared with self-retrievals) when the bounds
      are of order a typical wavelength bin in your data/final binned spectrum.
+
+(13) (also feature:) Flux scaling wavelength ranges need not necessary correspond to band ranges.

@@ -1,19 +1,19 @@
 import os
+from collections.abc import Callable
 from functools import partial
 from inspect import signature
 from pathlib import Path
-from typing import Callable
 
 import numpy as np
 from astropy import units as u
 from picaso import justdoit as jdi
 from xarray import DataArray
 
-FILENAME_DB = os.path.join(
-    os.environ.get("picaso_refdata"), "opacities", "opacities.db"
-)
+picaso_refdata = os.environ.get("picaso_refdata")
+print(f"{picaso_refdata=}")
+FILENAME_DB = os.path.join(picaso_refdata, "opacities", "opacities.db")
 print(FILENAME_DB)
-OPANNECTION = jdi.opannection(filename_db=FILENAME_DB)
+OPANNECTION = jdi.opannection(filename_db=FILENAME_DB, wave_range=(3000, 9000))
 SONORA_PROFILE_DB = "/Volumes/ResearchStorage/profile"
 SAVE_DIRECTORY = Path.cwd() / "extensions"
 
@@ -29,15 +29,14 @@ def add_SONORA_TP_profile(
     picaso_brown_dwarf: jdi.inputs, log_g: float, effective_temperature: float
 ):
     picaso_brown_dwarf.gravity(gravity=10**log_g, gravity_unit=u.Unit("cm/(s**2)"))
+    # picaso_brown_dwarf.inputs["approx"]["rt_params"]["toon"]["single_phase"] = 3
     picaso_brown_dwarf.sonora(SONORA_PROFILE_DB, effective_temperature)
     picaso_brown_dwarf.spectrum(OPANNECTION, full_output=True)
 
     return picaso_brown_dwarf
 
 
-def get_SONORA_TP_profile(
-    picaso_brown_dwarf: jdi.inputs, log_g: float, effective_temperature: float
-):
+def get_SONORA_TP_profile(picaso_brown_dwarf: jdi.inputs):
     SONORA_brown_dwarf = add_SONORA_TP_profile(picaso_brown_dwarf)
 
     log_pressures = np.asarray(
@@ -119,6 +118,11 @@ def estimate_significant_molecules(
     picaso_model = add_SONORA_TP_profile(
         make_picaso_brown_dwarf(), log_g, effective_temperature
     )
+    import pickle
+
+    with open("picaso_model_pickle.pkl", "wb") as test_file:
+        pickle.dump(picaso_model, test_file)
+
     chemeq_profile = get_chemical_equilibrium_profile(
         picaso_model, ctoo_vs_solar, metallicity
     )
@@ -141,24 +145,30 @@ def estimate_significant_molecules(
     return chemeq_profile.get(significant_molecules)
 
 
-LOG_G = 5.44
-EFFECTIVE_TEMPERATURE = 1200
-CTOO_VS_SOLAR = 0.80 / 0.48
-METALLICITY = 0
+if __name__ == "__main__":
+    # LOG_G = 5.44
+    # EFFECTIVE_TEMPERATURE = 1200
+    # CTOO_VS_SOLAR = 0.80 / 0.48
+    # METALLICITY = 0
 
-save_filename = (
-    "SONORA_chemical-equilibrium_profile_"
-    + f"logg{LOG_G}_"
-    + f"Teff{EFFECTIVE_TEMPERATURE}_"
-    + f"ctoo-vs-solar{CTOO_VS_SOLAR}_"
-    + f"metallicity{METALLICITY}"
-    + ".nc"
-)
-save_filepath = SAVE_DIRECTORY / Path(save_filename)
+    LOG_G = 3.5
+    EFFECTIVE_TEMPERATURE = 1300
+    CTOO_VS_SOLAR = 1
+    METALLICITY = 0.5
 
-significant_molecules = estimate_significant_molecules(
-    LOG_G, EFFECTIVE_TEMPERATURE, CTOO_VS_SOLAR, METALLICITY
-)
-print(significant_molecules)
+    save_filename = (
+        "SONORA_chemical-equilibrium_profile_"
+        + f"logg{LOG_G}_"
+        + f"Teff{EFFECTIVE_TEMPERATURE}_"
+        + f"ctoo-vs-solar{CTOO_VS_SOLAR}_"
+        + f"metallicity{METALLICITY}"
+        + ".nc"
+    )
+    save_filepath = SAVE_DIRECTORY / save_filename
 
-significant_molecules.to_netcdf(save_filepath)
+    significant_molecules = estimate_significant_molecules(
+        LOG_G, EFFECTIVE_TEMPERATURE, CTOO_VS_SOLAR, METALLICITY
+    )
+    print(significant_molecules)
+
+    significant_molecules.to_netcdf(save_filepath)

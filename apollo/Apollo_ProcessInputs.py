@@ -1,8 +1,8 @@
 import sys
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from os.path import abspath
-from typing import Any, Final, NamedTuple, Optional
+from typing import Any, Final, NamedTuple
 
 import msgspec
 import numpy as np
@@ -24,7 +24,8 @@ from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
 from apollo.planet import CPlanetBlueprint, SwitchBlueprint  # noqa: E402
 from apollo.spectrum.band_bin_and_convolve import (  # noqa: E402
     find_band_limits_from_wavelength_bins,
-    get_wavelengths_from_wavelength_bins,  # noqa: E402
+    get_bin_spacings_from_wavelengths,
+    get_wavelengths_from_wavelength_bins,
 )
 from apollo.src.wrapPlanet import PyPlanet  # noqa: E402
 from custom_types import Pathlike  # noqa: E402
@@ -133,8 +134,12 @@ class DataContainer:
     # NOTE: this is a clone of an existing container for APOLLO-style data.
     wavelo: NDArray[np.float_]
     wavehi: NDArray[np.float_]
-    wavemid: Optional[NDArray[np.float_]]
+    # wavemid: Optional[NDArray[np.float_]]
     flux: NDArray[np.float_]
+
+    @property
+    def wavemid(self):
+        return (self.wavehi + self.wavelo) / 2
 
     def make_spectrum(self) -> SpectrumWithWavelengths:
         wavelengths: NDArray[np.float_] = get_wavelengths_from_wavelength_bins(
@@ -145,12 +150,16 @@ class DataContainer:
 
 
 @dataclass
+class DataContainerwithError(DataContainer):
+    err: NDArray[np.float_]
+
+
 class DataContainerwithErrors(DataContainer):
     errlo: NDArray[np.float_]
     errhi: NDArray[np.float_]
 
 
-def read_in_observations(datain: Pathlike) -> DataContainerwithErrors:
+def read_in_observations(datain: Pathlike) -> DataContainerwithError:
     # Read in observations
     # Note: header contains info about star needed for JWST pipeline
 
@@ -175,72 +184,71 @@ def read_in_observations(datain: Pathlike) -> DataContainerwithErrors:
 
     wavelo = np.round(wavelo, 5)
     wavehi = np.round(wavehi, 5)
-    wavemid = (wavehi + wavelo) / 2.0
 
-    return DataContainerwithErrors(wavelo, wavehi, wavemid, flux, errlo, errhi)
+    return DataContainerwithError(wavelo, wavehi, flux, errhi)
 
 
 class BandSpecs(NamedTuple):
     bandindex: list[tuple]
-    modindex: NDArray[np.int_]
+    modindex: list[tuple[int]]
     modwave: NDArray[np.float_]
 
 
-def band_data(observations: DataContainer) -> dict[tuple, DataContainerwithErrors]:
+def band_data(
+    observations: DataContainerwithError,
+) -> dict[tuple, DataContainerwithError]:
     # Separate out individual bands
-    band_indices, *banded_spectra = af.FindBands(
-        observations.wavelo, observations.wavehi, observations.flux, observations.errhi
-    )
+    band_indices, *banded_spectra = af.FindBands(*astuple(observations))
 
-    banded_data: dict[tuple, DataContainerwithErrors] = {
-        band_index: DataContainerwithErrors(banded_spectrum)
-        for band_index, banded_spectrum in zip(band_indices, banded_spectra)
+    banded_spectral_inputs = list(zip(*banded_spectra))
+
+    return {
+        tuple(band_index): DataContainerwithError(*banded_spectral_input)
+        for band_index, banded_spectral_input in zip(
+            band_indices, banded_spectral_inputs
+        )
     }
-    return banded_data
 
 
 def band_convolve_and_bin_observations(
-    observations: DataContainer, data_parameters: DataParameters
-) -> None:
+    observations: DataContainerwithError, data_parameters: DataParameters
+) -> DataContainerwithError:
     # Separate out individual bands
-    bandlo, bandhi, bandflux, banderr = band_data(observations).values()
-    # nband = len(bandhi)
+    banded_data: dict[tuple[float], DataContainerwithError] = band_data(observations)
+
+    bandlo = [banded_data.wavelo for banded_data in banded_data.values()]
+    bandhi = [banded_data.wavehi for banded_data in banded_data.values()]
+    bandflux = [banded_data.flux for banded_data in banded_data.values()]
+    banderr = [banded_data.err for banded_data in banded_data.values()]
 
     # Convolve the observations to account for effective resolving power or fit at lower resolving power
     convflux, converr = af.ConvBands(bandflux, banderr, data_parameters.dataconv)
 
     # Bin the observations to fit a lower sampling resolution
-    binlo, binhi, binflux, binerr = af.BinBands(
-        bandlo, bandhi, convflux, converr, data_parameters.databin
+    return DataContainerwithError(
+        *af.BinBands(bandlo, bandhi, convflux, converr, data_parameters.databin)
     )
 
-    binmid = np.zeros(len(binlo))
-    for i in range(0, len(binlo)):
-        binmid[i] = (binlo[i] + binhi[i]) / 2.0
 
-    return DataContainerwithErrors(binlo, binhi, binmid, binflux, binerr, binerr)
-
-
-def calculate_total_flux_in_CGS(observations: DataContainer) -> float:
-    binlen = len(observations.flux)
-    binlo = observations.wavelo
-    binhi = observations.wavehi
-    binflux = observations.flux
-
-    totalflux = 0
-    for i in range(0, binlen):
-        totalflux = totalflux + binflux[i] * (binhi[i] - binlo[i]) * 1.0e-4
-
-    return totalflux
-
-
-def get_wavelengths_from_data(data_parameters: DataParameters) -> tuple[float]:
-    unbinned_data: DataContainerwithErrors = read_in_observations(
-        data_parameters.datain
+def calculate_total_flux_in_CGS(observations: SpectrumWithWavelengths) -> float:
+    bin_widths: NDArray[np.float_] = get_bin_spacings_from_wavelengths(
+        observations.wavelengths
     )
 
-    binned_data: DataContainerwithErrors = band_convolve_and_bin_observations(
-        unbinned_data, data_parameters
+    um_to_cm_factor: float = 1.0e-4
+    # totalflux = 0
+    # for i in range(0, binlen):
+    #    totalflux = totalflux + observations.flux[i] * bin_widths[i] * 1.0e-4
+
+    return np.sum(observations.flux * bin_widths * um_to_cm_factor)
+
+
+def get_wavelengths_from_data(
+    data_parameters: DataParameters,
+) -> tuple[NDArray[np.float_]]:
+    binned_data: DataContainerwithError = band_convolve_and_bin_observations(
+        observations=read_in_observations(data_parameters.datain),
+        data_parameters=data_parameters,
     )
 
     return (binned_data.wavelo, binned_data.wavehi)
@@ -339,10 +347,8 @@ def set_model_wavelengths_from_opacity_tables_and_data(
     opacity_parameters: OpacityParameters,
     minDL: float = 0.0,
     maxDL: float = 0.0,
-) -> NDArray[np.float_]:
-    unbinned_data: DataContainerwithErrors = read_in_observations(
-        data_parameters.datain
-    )
+) -> BandSpecs:
+    unbinned_data: DataContainerwithError = read_in_observations(data_parameters.datain)
     data_band_limits: tuple[tuple[float]] = find_band_limits_from_wavelength_bins(
         unbinned_data.wavelo, unbinned_data.wavehi
     )
@@ -356,14 +362,35 @@ def set_model_wavelengths_from_opacity_tables_and_data(
         )
     )
 
-    banded_opacity_wavelengths: NDArray[np.float_] = pare_down_model_wavelengths(
+    banded_opacity_indices: list[tuple] = af.SliceModel_bindex(
         band_limits=data_band_limits,
         opacwave=unbanded_opacity_wavelengths,
         minDL=minDL,
         maxDL=maxDL,
     )
 
-    return banded_opacity_wavelengths
+    model_opacity_indices: list[list[int]] = af.SliceModel_modindex(
+        *banded_opacity_indices
+    )
+
+    banded_opacity_wavelengths = af.SliceModel_modwave(
+        unbanded_opacity_wavelengths, *banded_opacity_indices
+    )
+
+    """
+    banded_opacity_wavelengths: NDArray[np.float_] = pare_down_model_wavelengths(
+        band_limits=data_band_limits,
+        opacwave=unbanded_opacity_wavelengths,
+        minDL=minDL,
+        maxDL=maxDL,
+    )
+    """
+
+    return BandSpecs(
+        bandindex=banded_opacity_indices,
+        modindex=model_opacity_indices,
+        modwave=banded_opacity_wavelengths,
+    )
 
 
 def get_index_for_polynomial_normalization(bandindex: list[tuple]) -> int | None:
@@ -377,8 +404,8 @@ def get_index_for_polynomial_normalization(bandindex: list[tuple]) -> int | None
 
 
 def normalize_banded_data(
-    bands_of_data: list[DataContainerwithErrors], band_specs: BandSpecs
-) -> DataContainerwithErrors:
+    bands_of_data: list[DataContainerwithError], band_specs: BandSpecs
+) -> DataContainerwithError:
     # Handle bands and optional polynomial fitting
     polyindex = get_index_for_polynomial_normalization(band_specs.bandindex)
     if polyindex is None:
@@ -387,12 +414,12 @@ def normalize_banded_data(
     normlo = bands_of_data[0].wavelo
     normhi = bands_of_data[0].wavehi
     normflux = bands_of_data[0].flux
-    normerr = bands_of_data[0].errhi
+    normerr = bands_of_data[0].err
     for i in range(1, len(bands_of_data)):
         normlo = np.r_[normlo, bands_of_data[i].wavelo]
         normhi = np.r_[normhi, bands_of_data[i].wavehi]
         normflux = np.r_[normflux, bands_of_data[i].flux]
-        normerr = np.r_[normerr, bands_of_data[i].errhi]
+        normerr = np.r_[normerr, bands_of_data[i].err]
     normmid = (normlo + normhi) / 2.0
 
     slennorm = []
@@ -407,8 +434,8 @@ def normalize_banded_data(
     )  # NOTE: this line needs clarification and checking.
     mastererr = af.NormSpec(normmid, fluxspecial, slennorm, elennorm)
 
-    return DataContainerwithErrors(
-        wavelo=normlo, wavehi=normhi, flux=masternorm, errlo=mastererr, errhi=mastererr
+    return DataContainerwithError(
+        wavelo=normlo, wavehi=normhi, flux=masternorm, err=mastererr
     )
 
 

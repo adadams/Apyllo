@@ -115,6 +115,14 @@ def get_valid_files_and_header(filepaths, header_protocol=CrossSectionTableHeade
     return valid_filepaths, directory_header
 
 
+@dataclass
+class CrossSectionDirectory:
+    header: CrossSectionTableHeader
+    directory_name: str
+    list_of_species: tuple[str]
+    filepath_directory: dict[str, Pathlike]
+
+
 def create_crosssection_catalog(
     file_directory: PathLike | str, filename_match_string: str = r"*.*.dat"
 ) -> dict[str, CrossSectionTable]:
@@ -155,10 +163,10 @@ def create_crosssection_catalog(
             continue
 
         directories[directory_name] = CrossSectionDirectory(
-            *directory_header,
-            directory_name,
-            directory_species,
-            {
+            header=directory_header,
+            directory_name=directory_name,
+            list_of_species=directory_species,
+            filepath_directory={
                 species: filepath
                 for species, filepath in zip(directory_species, directory_filepaths)
             },
@@ -168,37 +176,51 @@ def create_crosssection_catalog(
 
 
 def load_crosssections_into_array(
-    directory: CrossSectionDirectory, excluded_species: list[str] = None
+    number_of_pressure_layers: int,
+    number_of_temperatures: int,
+    number_of_spectral_elements: int,
+    filepaths: dict[str, Pathlike],
+    excluded_species: list[str] = None,
 ):
     def load_array(filepath, loadtxt_kwargs=dict(skiprows=1)):
         return np.flip(np.loadtxt(filepath, **loadtxt_kwargs)).reshape(
-            directory.number_of_pressure_layers,
-            directory.number_of_temperatures,
-            directory.number_of_spectral_elements,
+            number_of_pressure_layers,
+            number_of_temperatures,
+            number_of_spectral_elements,
         )
 
     return {
         species: load_array(filepath)
-        for species, filepath in directory.filepaths.items()
+        for species, filepath in filepaths.items()
         if species not in excluded_species
     }
 
 
 def load_crosssections_into_dataset(
-    directory: CrossSectionDirectory, excluded_species: list[str] = None
+    pressures: NDArray[np.float_],
+    temperatures: NDArray[np.float_],
+    wavelengths: NDArray[np.float_],
+    filepaths: dict[str, Pathlike],
+    excluded_species: list[str] = None,
 ):
     if excluded_species is None:
         excluded_species = []
 
-    crosssection_array_dict = load_crosssections_into_array(directory, excluded_species)
+    crosssection_array_dict = load_crosssections_into_array(
+        number_of_pressure_layers=len(pressures),
+        number_of_temperatures=len(temperatures),
+        number_of_spectral_elements=len(wavelengths),
+        filepaths=filepaths,
+        excluded_species=excluded_species,
+    )
 
     DataArray_dict = {
         species: DataArray(
             crosssection_array,
             coords=dict(
-                pressures=directory.pressures,
-                temperatures=directory.temperatures,
-                wavelengths=directory.wavelengths,
+                pressures=pressures,
+                temperatures=temperatures,
+                wavelengths=wavelengths,
             ),
         )
         for species, crosssection_array in crosssection_array_dict.items()

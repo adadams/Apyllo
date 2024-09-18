@@ -1,10 +1,11 @@
 import sys
 from collections.abc import Callable
+from functools import partial
 from os.path import abspath
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 import numpy as np
-from nptyping import NDArray
+from numpy.typing import NDArray
 
 from useful_internal_functions import compose
 
@@ -15,12 +16,11 @@ if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
 
 from apollo.Apollo_ProcessInputs import (  # noqa: E402
-    BandSpecs,
     BinIndices,
     SpectrumWithWavelengths,
     calculate_total_flux_in_CGS,
 )
-from apollo.Apollo_ReadInputsfromFile import RadiusInputType  # noqa: E402
+from apollo.Apollo_ReadInputsfromFile import FluxScaler, RadiusInputType  # noqa: E402
 from apollo.src.ApolloFunctions import BinModel, ConvSpec, NormSpec  # noqa: E402
 
 REarth_in_cm = 6.371e8
@@ -35,6 +35,10 @@ G395_boundaries = [2.8, 5.3]
 G395_ch1_boundaries = [2.8, 4.05]
 G395_ch2_boundaries = [4.15, 5.3]
 """
+
+
+def apply_nothing(argument: Any) -> Any:
+    return argument
 
 
 def calculate_solid_angle(
@@ -70,16 +74,15 @@ def normalize_spectrum(
     model_spectrum: SpectrumWithWavelengths,
     normalization_parameters: Optional[NormalizationParameters] = None,
 ) -> SpectrumWithWavelengths:
-    total_flux = calculate_total_flux_in_CGS(...)
+    total_flux: float = calculate_total_flux_in_CGS(model_spectrum)
 
-    normspec = NormSpec(
-        model_spectrum.wavelengths,
-        model_spectrum.flux,
+    normspec: NDArray[np.float_] = NormSpec(
+        *model_spectrum,
         normalization_parameters.snormtrunc,
         normalization_parameters.enormtrunc,
     )
 
-    normspec = (
+    normspec: NDArray[np.float_] = (
         normspec * total_flux / np.sum(normspec)
         if normalization_parameters.norad
         else normspec
@@ -88,6 +91,12 @@ def normalize_spectrum(
     return SpectrumWithWavelengths(
         wavelengths=model_spectrum.wavelengths, flux=normspec
     )
+
+
+class WavelengthCalibrationParameters(NamedTuple):
+    model_spectrum_bin_indices: BinIndices
+    unit_bin_indices_shift: BinIndices
+    wavelength_calibration_parameter: float
 
 
 def apply_wavelength_calibration(
@@ -114,7 +123,8 @@ class BinningParameters(NamedTuple):
 
 
 def bin_and_convolve_model(
-    full_resolution_observed_model: SpectrumWithWavelengths,
+    full_resolution_observed_flux: NDArray[np.float_],
+    binned_wavelengths: NDArray[np.float_],
     binning_parameters: BinningParameters,
 ) -> NDArray[np.float_]:
     lower_bin_indices, upper_bin_indices = binning_parameters.bin_indices
@@ -129,7 +139,7 @@ def bin_and_convolve_model(
 
     convmod: list[NDArray[np.float_]] = [
         ConvSpec(
-            flux=full_resolution_observed_model.flux[model_index_start:model_index_end],
+            flux=full_resolution_observed_flux[model_index_start:model_index_end],
             bin_width=binw,
         )
         for model_index_start, model_index_end in zip(
@@ -145,22 +155,13 @@ def bin_and_convolve_model(
             binlo=lower_bin_indices[band_start_index : band_end_index + 1],
             binhi=upper_bin_indices[band_start_index : band_end_index + 1],
         )
-        for band_start_index, band_end_index in zip(
-            binning_parameters.band_index[:-1], binning_parameters.band_index[1:]
-        )
+        for (band_start_index, band_end_index) in binning_parameters.band_index
     ]
 
     return SpectrumWithWavelengths(
         wavelengths=binned_wavelengths,
         flux=np.array([item for sublist in binmod for item in sublist]),
     )
-
-
-# NOTE: How can this be combined with the ParameterValue class?
-class FluxScaler(NamedTuple):
-    band_lower_wavelength_boundary: float
-    band_upper_wavelength_boundary: float
-    scale_factor: NDArray[np.float_]
 
 
 def scale_flux_by_band(
@@ -201,40 +202,52 @@ def make_observation_at_full_resolution(
     )
 
 
-"""
-class BandSpecs(NamedTuple):
-    bandindex: list[tuple]
-    modindex: NDArray[np.int_]
-    modwave: NDArray[np.float_]
-"""
-
-
 def make_observation_at_binned_resolution(
     observation_at_full_resolution: SpectrumWithWavelengths,
-    band_index: list[tuple],
-    model_spectrum_indices: NDArray[np.int_],
-    bin_indices: BinIndices,
-    convolving_factor: float,
-    binning_factor: float,
+    binned_wavelengths: NDArray[np.float_],
+    binning_parameters: BinningParameters,
 ) -> SpectrumWithWavelengths:
-    band_specs: BandSpecs = BandSpecs(
-        bandindex=band_index,
-        modindex=model_spectrum_indices,
-        modwave=observation_at_full_resolution.wavelengths,
-    )
+    # band_specs: BandSpecs = BandSpecs(
+    #    bandindex=binning_parameters.band_index,
+    #    modindex=binning_parameters.model_spectrum_indices,
+    #    modwave=observation_at_full_resolution.wavelengths,
+    # )
 
     return bin_and_convolve_model(
-        full_resolution_observed_model=observation_at_full_resolution.flux,
-        band_specs=band_specs,
-        bin_indices=bin_indices,
-        convolving_factor=convolving_factor,
-        binning_factor=binning_factor,
+        full_resolution_observed_flux=observation_at_full_resolution.flux,
+        binned_wavelengths=binned_wavelengths,
+        binning_parameters=binning_parameters,
     )
 
 
 def generate_observation_pipeline_from_model_parameters(
-    emission_spectrum_at_surface: SpectrumWithWavelengths,
     observation_scaler_inputs: Optional[ResolvedAngleScaler] = None,
-    flux_scaler_inputs: Optional[FluxScaler] = None,
+    flux_scaler_inputs: Optional[list[FluxScaler]] = None,
+    binned_wavelengths: Optional[NDArray[np.float_]] = None,
+    binning_parameters_inputs: Optional[BinningParameters] = None,
 ) -> Callable[[SpectrumWithWavelengths], SpectrumWithWavelengths]:
-    compose()
+    sequence_of_functions: list[Callable] = [
+        make_observation_at_full_resolution
+        if observation_scaler_inputs is None
+        else partial(
+            make_observation_at_full_resolution,
+            observation_scaler=observation_scaler_inputs,
+        ),
+        apply_nothing
+        if flux_scaler_inputs is None
+        else compose(
+            *[
+                partial(scale_flux_by_band, flux_scaler=flux_scaler_input)
+                for flux_scaler_input in flux_scaler_inputs
+            ]
+        ),
+        apply_nothing
+        if (binned_wavelengths is None or binning_parameters_inputs is None)
+        else partial(
+            make_observation_at_binned_resolution,
+            binned_wavelengths=binned_wavelengths,
+            binning_parameters=binning_parameters_inputs,
+        ),
+    ]
+
+    return compose(*sequence_of_functions)
