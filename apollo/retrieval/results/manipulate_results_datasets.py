@@ -3,6 +3,10 @@ from collections.abc import Sequence
 from numpy import percentile
 from xarray import Dataset, apply_ufunc
 
+from dataset.builders import prep_unit_registry
+
+unit_registry = prep_unit_registry()
+
 
 def calculate_percentile(
     dataset: Dataset,
@@ -38,7 +42,9 @@ def change_parameter_values_using_MLE_dataset(
 
     if parameter_name == "Rad":
         MLE_parameter_dict["MLE"] = float(
-            MLE_dataset.get(parameter_name).pint.to("Earth_radii").to_numpy()
+            (MLE_dataset.get(parameter_name).pint.quantify(unit_registry=unit_registry))
+            .pint.to("Earth_radii")
+            .to_numpy()
         )
     else:
         MLE_parameter_dict["MLE"] = float(MLE_dataset.get(parameter_name).to_numpy())

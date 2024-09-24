@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import (
     Any,
@@ -28,6 +28,13 @@ from apollo.retrieval.plotting.contributions_plot import (
     draw_cloud_contribution,
     draw_gas_contribution,
 )
+from apollo.retrieval.plotting.multi_figure import (
+    MultiFigure,
+    MultiFigureBlueprint,
+    MultiFigureBlueprintButt,
+    create_Arthurs_multi_figure,
+    setup_multi_figure,
+)
 from apollo.retrieval.plotting.residuals_plot import (
     calculate_residuals,
     generate_residual_plot_by_band,
@@ -40,13 +47,15 @@ from apollo.retrieval.results.manipulate_results_datasets import (
     calculate_MLE,
     calculate_percentile,
 )
+from user_directories import USER_DIRECTORY
+
+"""
 from apollo.retrieval.samplers.dynesty.dynesty_interface_with_apollo import (
     create_MLE_output_dictionary,
     prep_inputs_for_model,
 )
-from apollo.retrieval.samplers.dynesty.parse_dynesty_outputs import (
-    unpack_results_filepaths,
-)
+"""
+from apollo.retrieval.results.IO import unpack_results_filepaths
 from apollo.visualization_functions import (
     convert_to_greyscale,
     create_linear_colormap,
@@ -54,7 +63,7 @@ from apollo.visualization_functions import (
 )
 from custom_types import Pathlike
 from dataset.accessors import change_units
-from dataset.IO import load_dataset_with_units
+from dataset.IO import load_and_prep_dataset
 from user.forward_models.inputs.parse_APOLLO_inputs import write_parsed_input_to_output
 from user.plots.plots_config import DEFAULT_PLOT_FILETYPES
 
@@ -65,9 +74,8 @@ CMAP_KWARGS: Final = {
     "saturation_maximum": 0.8,
 }
 
-APOLLO_USER_PLOTS_DIRECTORY: Final = (
-    Path("~/Documents/Astronomy/2019/Retrieval/Code/APOLLO") / "user" / "plots"
-)
+APOLLO_USER_PLOTS_DIRECTORY: Final = USER_DIRECTORY / "plots"
+
 plt.style.use(APOLLO_USER_PLOTS_DIRECTORY / "arthur.mplstyle")
 
 CMAP_H2O: Final[Colormap] = create_linear_colormap(
@@ -104,7 +112,7 @@ DEFAULT_SAVE_PLOT_KWARGS = dict(
 
 
 def setup_contribution_plots(
-    contributions: dict[str, NDArray[np.float_]], data_filepath: Pathlike
+    contributions: dict[str, NDArray[np.float64]], data_filepath: Pathlike
 ):
     FIDUCIAL_SPECIES = "h2o"
     MINIMUM_BAND_BREAK_IN_MICRONS = 0.05
@@ -175,7 +183,7 @@ def make_spectrum_and_residual_axes(
 
 
 def calculate_chi_squared(
-    residuals: NDArray[np.float_], number_of_parameters: int
+    residuals: NDArray[np.float64], number_of_parameters: int
 ) -> float:
     reduced_chi_squared = np.sum(residuals**2) / (
         np.shape(residuals)[0] - number_of_parameters
@@ -325,7 +333,7 @@ def make_contribution_figure_per_species(
 def plot_multi_figure_iteration(
     figure: plt.Figure,
     gridspec: GridSpec,
-    contributions: dict[str, NDArray[np.float_]],
+    contributions: dict[str, NDArray[np.float64]],
     list_of_band_boundaries: Sequence[Sequence[float]],
     band_breaks: Sequence[Sequence[float]],
     contributions_max: float,
@@ -341,11 +349,7 @@ def plot_multi_figure_iteration(
 ) -> list[plt.Figure, tuple[plt.Axes]]:
     j = iteration_index
 
-    if (
-        (spectrum_axes is None)
-        and (residual_axes is None)
-        and (contribution_columns is None)
-    ):
+    if not multi_figure_axes:
         spectrum_axes = []
         residual_axes = []
         contribution_columns = []
@@ -613,9 +617,11 @@ def make_multi_plots(
 
         number_of_bands: int = len(contribution_setup["wavelength_ranges"])
         multi_setup: MultiFigure = setup_multi_figure(
-            number_of_contributions=len(contribution_components),
-            number_of_bands=number_of_bands,
-            wavelength_ranges=contribution_setup["wavelength_ranges"],
+            create_Arthurs_multi_figure(
+                number_of_contributions=len(contribution_components),
+                number_of_bands=number_of_bands,
+                wavelength_ranges=contribution_setup["wavelength_ranges"],
+            )
         )
 
         band_boundaries = list(
@@ -628,7 +634,7 @@ def make_multi_plots(
         MLE_spectrum_filepath = run_filepath_dict["MLE_model_spectrum"]
         _, _, model_spectrum, *_ = np.loadtxt(MLE_spectrum_filepath).T
 
-        multi_figure_kwargs = MultiFigureBlueprint(
+        multi_figure_kwargs = MultiFigureBlueprintButt(
             contributions=contributions,
             list_of_band_boundaries=band_boundaries,
             band_breaks=contribution_setup["band_breaks"],
@@ -644,7 +650,9 @@ def make_multi_plots(
         if j == 0:
             multi_figure, spectrum_axes, residual_axes, contribution_columns = (
                 plot_multi_figure_iteration(
-                    **multi_setup,
+                    figure=multi_setup.figure,
+                    gridspec=multi_setup.gridspec,
+                    # axis_array=multi_setup.axis_array,
                     iteration_index=j,
                     plot_color=plotting_color,
                     **multi_figure_kwargs,
@@ -654,7 +662,9 @@ def make_multi_plots(
         else:
             multi_figure, spectrum_axes, residual_axes, contribution_columns = (
                 plot_multi_figure_iteration(
-                    **multi_setup,
+                    figure=multi_setup.figure,
+                    gridspec=multi_setup.gridspec,
+                    # axis_array=multi_setup.axis_array,
                     iteration_index=j,
                     plot_color=plotting_color,
                     **multi_figure_kwargs,
@@ -664,13 +674,16 @@ def make_multi_plots(
                 )
             )
 
-        wrap_contributions_plot(multi_figure, multi_setup["gridspec"])
+        wrap_contributions_plot(multi_figure, multi_setup.gridspec)
 
         for filetype in plot_filetypes:
             multi_figure.savefig(
                 results_directory
                 / run_name
-                / (run_name + f".fit-spectrum+contributions.{filetype}"),
+                / (
+                    run_name.replace("/", "_")
+                    + f".fit-spectrum+contributions.{filetype}"
+                ),
                 **save_kwargs,
             )
 
@@ -775,7 +788,7 @@ def make_combined_TP_profile_plot(
     for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
         run_directories.items(), plotting_colors.items()
     ):
-        TP_profile_dataset = load_dataset_with_units(run_filepath_dict["TP_dataset"])
+        TP_profile_dataset = load_and_prep_dataset(run_filepath_dict["TP_dataset"])
 
         TP_1sigma_percentiles = calculate_percentile(
             TP_profile_dataset, percentiles=[16, 50, 84], axis=0
@@ -879,8 +892,8 @@ def make_combined_TP_profile_plot(
 
 
 class CornerplotBlueprint(TypedDict):
-    samples: NDArray[np.float_]
-    weights: NDArray[np.float_]
+    samples: NDArray[np.float64]
+    weights: NDArray[np.float64]
     group_name: str
     parameter_names: Sequence[str]
     parameter_range: Sequence[Sequence[float]]
@@ -920,7 +933,7 @@ def make_corner_plots(
     for (run_name, run_filepath_dict), (run_name, plotting_color) in zip(
         run_directories.items(), plotting_colors.items()
     ):
-        samples_dataset = load_dataset_with_units(run_filepath_dict["samples_dataset"])
+        samples_dataset = load_and_prep_dataset(run_filepath_dict["samples_dataset"])
         samples_dataset.update(change_units(samples_dataset.Rad, "Jupiter_radii"))
 
         MLE_values = calculate_MLE(samples_dataset)
@@ -976,6 +989,7 @@ def make_corner_plots(
     return None
 
 
+"""
 def plot_MLE_spectrum_of_one_run_against_different_data(
     run_directory: Pathlike, other_data_filepath: Pathlike
 ) -> None:
@@ -1012,3 +1026,4 @@ def plot_MLE_spectrum_of_one_run_against_different_data(
         "errors": different_errors,
         "spectrum": observed_binned_model_spectrum,
     }
+"""

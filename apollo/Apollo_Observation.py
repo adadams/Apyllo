@@ -76,13 +76,13 @@ def normalize_spectrum(
 ) -> SpectrumWithWavelengths:
     total_flux: float = calculate_total_flux_in_CGS(model_spectrum)
 
-    normspec: NDArray[np.float_] = NormSpec(
+    normspec: NDArray[np.float64] = NormSpec(
         *model_spectrum,
         normalization_parameters.snormtrunc,
         normalization_parameters.enormtrunc,
     )
 
-    normspec: NDArray[np.float_] = (
+    normspec: NDArray[np.float64] = (
         normspec * total_flux / np.sum(normspec)
         if normalization_parameters.norad
         else normspec
@@ -123,40 +123,59 @@ class BinningParameters(NamedTuple):
 
 
 def bin_and_convolve_model(
-    full_resolution_observed_flux: NDArray[np.float_],
-    binned_wavelengths: NDArray[np.float_],
+    full_resolution_observed_flux: NDArray[np.float64],
+    binned_wavelengths: NDArray[np.float64],
     binning_parameters: BinningParameters,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     lower_bin_indices, upper_bin_indices = binning_parameters.bin_indices
 
     binw: float = (lower_bin_indices[1] - lower_bin_indices[0]) * (
         binning_parameters.convolving_factor / binning_parameters.binning_factor
     )
 
-    # convmod: list[NDArray[np.float_]] = []
+    # convmod: list[NDArray[np.float64]] = []
     # for i in range(0, len(modindex)):
     #    convmod.append(ConvSpec(normspec[modindex[i][0] : modindex[i][1]], binw))
 
-    convmod: list[NDArray[np.float_]] = [
+    pre_convmod: list[NDArray[np.float64]] = [
+        full_resolution_observed_flux[model_index_start:model_index_end]
+        for (
+            model_index_start,
+            model_index_end,
+        ) in binning_parameters.model_spectrum_indices
+    ]
+
+    print(f"{pre_convmod=}")
+
+    convmod: list[NDArray[np.float64]] = [
         ConvSpec(
             flux=full_resolution_observed_flux[model_index_start:model_index_end],
             bin_width=binw,
         )
-        for model_index_start, model_index_end in zip(
-            binning_parameters.model_spectrum_indices[:-1],
-            binning_parameters.model_spectrum_indices[1:],
-        )
+        for (
+            model_index_start,
+            model_index_end,
+        ) in binning_parameters.model_spectrum_indices
     ]
-    convmod: list[float] = [item for sublist in convmod for item in sublist]
+    print(f"convmod before unpacking in list: {convmod=}")
 
-    binmod: list[NDArray[np.float_]] = [
+    convmod: list[float] = [item for sublist in convmod for item in sublist]
+    print(f"convmod after unpacking in list: {convmod=}")
+
+    print(f"{lower_bin_indices=}" f"{upper_bin_indices=}")
+    print(f"{binning_parameters.band_index=}")
+    binmod: list[NDArray[np.float64]] = [
         BinModel(
             flux=convmod,
-            binlo=lower_bin_indices[band_start_index : band_end_index + 1],
-            binhi=upper_bin_indices[band_start_index : band_end_index + 1],
+            binlo=lower_bin_indices[model_start_index : model_end_index + 1],
+            binhi=upper_bin_indices[model_start_index : model_end_index + 1],
         )
-        for (band_start_index, band_end_index) in binning_parameters.band_index
+        for (
+            model_start_index,
+            model_end_index,
+        ) in binning_parameters.model_spectrum_indices
     ]
+    print(f"{binmod=}")
 
     return SpectrumWithWavelengths(
         wavelengths=binned_wavelengths,
@@ -194,19 +213,24 @@ def make_observation_at_full_resolution(
     spectrum_at_system: SpectrumWithWavelengths,
     observation_scaler: Optional[ResolvedAngleScaler] = None,
 ) -> SpectrumWithWavelengths:
-    return SpectrumWithWavelengths(
+    result = SpectrumWithWavelengths(
         wavelengths=spectrum_at_system.wavelengths,
         flux=spectrum_at_system.flux
         if observation_scaler is None
         else spectrum_at_system.flux * calculate_solid_angle(*observation_scaler),
     )
 
+    print(f"make_observation_at_full_resolution: {result=}")
+
+    return result
+
 
 def make_observation_at_binned_resolution(
     observation_at_full_resolution: SpectrumWithWavelengths,
-    binned_wavelengths: NDArray[np.float_],
+    binned_wavelengths: NDArray[np.float64],
     binning_parameters: BinningParameters,
 ) -> SpectrumWithWavelengths:
+    print(f"{observation_at_full_resolution.flux=}")
     # band_specs: BandSpecs = BandSpecs(
     #    bandindex=binning_parameters.band_index,
     #    modindex=binning_parameters.model_spectrum_indices,
@@ -223,7 +247,7 @@ def make_observation_at_binned_resolution(
 def generate_observation_pipeline_from_model_parameters(
     observation_scaler_inputs: Optional[ResolvedAngleScaler] = None,
     flux_scaler_inputs: Optional[list[FluxScaler]] = None,
-    binned_wavelengths: Optional[NDArray[np.float_]] = None,
+    binned_wavelengths: Optional[NDArray[np.float64]] = None,
     binning_parameters_inputs: Optional[BinningParameters] = None,
 ) -> Callable[[SpectrumWithWavelengths], SpectrumWithWavelengths]:
     sequence_of_functions: list[Callable] = [

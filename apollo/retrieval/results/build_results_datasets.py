@@ -1,12 +1,12 @@
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, NamedTuple, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
 from pandas.compat import pickle_compat
 from pint import Unit
-from xarray import Coordinates, DataArray, Dataset, Variable, apply_ufunc
+from xarray import DataArray, Dataset, Variable, apply_ufunc
 
 from apollo.make_forward_model_from_file import (
     evaluate_model_spectrum,
@@ -25,6 +25,8 @@ from dataset.accessors import (
 from dataset.IO import prep_and_save_dataset
 from user.forward_models.inputs.parse_APOLLO_inputs import parse_APOLLO_input_file
 
+type Coordinates = dict[str, Variable]
+
 
 class ResultsAttributeBlueprint(TypedDict):
     units: str
@@ -33,7 +35,7 @@ class ResultsAttributeBlueprint(TypedDict):
     base_group: str
 
 
-class RunDatasetBlueprint(TypedDict):
+class RunDatasetBlueprint(NamedTuple):
     parameter_names: Sequence[str]
     parameter_values: Sequence[float]
     parameter_units: Sequence[Unit | str]
@@ -82,7 +84,7 @@ def make_run_parameter_dataset(run: RunDatasetBlueprint) -> Dataset:
 
 def make_run_dataset_from_APOLLO_parameter_file(
     results_parameter_filepath: Path,
-    parameter_values: NDArray[np.float_],
+    parameter_values: NDArray[np.float64],
     log_likelihoods: Sequence[float],
     **parsing_kwargs,
 ) -> Dataset:
@@ -99,9 +101,11 @@ def make_run_dataset_from_APOLLO_parameter_file(
     )
 
     return make_run_parameter_dataset(
-        **parameter_properties,
-        parameter_values=parameter_values,
-        log_likelihoods=log_likelihoods,
+        RunDatasetBlueprint(
+            **parameter_properties,
+            parameter_values=parameter_values,
+            log_likelihoods=log_likelihoods,
+        )
     )
 
 
@@ -161,8 +165,8 @@ def evaluate_model_spectra_from_dataset(
     ):
         number_of_wavelength_bins: int = len(binned_wavelengths)
         number_of_model_runs: int = len(sequences_of_parameters[0])
-        spectrum_array: NDArray[np.float_] = np.empty(
-            (number_of_model_runs, number_of_wavelength_bins), dtype=np.float_
+        spectrum_array: NDArray[np.float64] = np.empty(
+            (number_of_model_runs, number_of_wavelength_bins), dtype=np.float64
         )
 
         # for i, model_parameter_set in enumerate(
@@ -172,13 +176,13 @@ def evaluate_model_spectra_from_dataset(
             model_parameter_set_without_units: list[float] = [
                 parameter.magnitude for parameter in model_parameter_set
             ]
-            model_spectrum: NDArray[np.float_] = np.asarray(
+            model_spectrum: NDArray[np.float64] = np.asarray(
                 evaluate_model_spectrum(
                     model_function=model_function,
                     observation=observation,
                     model_parameters=model_parameter_set_without_units,
                 ),
-                dtype=np.float_,
+                dtype=np.float64,
             )
             spectrum_array[i] = model_spectrum
 
@@ -205,8 +209,8 @@ def compile_results_into_dataset(
     output_file_suffix: str = "samples.nc",
     **parsing_kwargs,
 ) -> Dataset:
-    parameter_samples: NDArray[np.float_] = results.samples
-    log_likelihoods: NDArray[np.float_] = results.log_likelihoods
+    parameter_samples: NDArray[np.float64] = results.samples
+    log_likelihoods: NDArray[np.float64] = results.log_likelihoods
 
     results_dataset: Dataset = make_run_dataset_from_APOLLO_parameter_file(
         MLE_parameters_filepath,
@@ -233,20 +237,20 @@ def compile_results_for_intermediate_processing(
 ) -> Dataset: ...
 
 
-def get_binned_wavelengths(MLE_parameters_filepath: Pathlike) -> NDArray[np.float_]:
+def get_binned_wavelengths(MLE_parameters_filepath: Pathlike) -> NDArray[np.float64]:
     return prep_inputs_for_model(MLE_parameters_filepath)["binned_wavelengths"]
 
 
 def load_contribution_files(
     original_contributions_filepath: Pathlike,
-) -> dict[str, NDArray[np.float_]]:
+) -> dict[str, NDArray[np.float64]]:
     with open(original_contributions_filepath, "rb") as pickle_file:
         return pickle_compat.load(pickle_file)
 
 
 def compile_contributions_into_dataset(
-    contributions: dict[str, NDArray[np.float_]],
-    binned_wavelengths: NDArray[np.float_],
+    contributions: dict[str, NDArray[np.float64]],
+    binned_wavelengths: NDArray[np.float64],
     output_filepath_plus_prefix: Pathlike = None,
     log_pressures: Sequence[float] = MIDLAYER_LOG_PRESSURES,
 ) -> Dataset:
@@ -256,29 +260,27 @@ def compile_contributions_into_dataset(
         dims="wavelength",
         data=binned_wavelengths,
         attrs={"units": "microns"},
-    )
+    ).to_dict()
 
     pressure_coordinate: Variable = Variable(
         dims="pressure",
         data=10**log_pressures,
         attrs={"units": "bar"},
-    )
+    ).to_dict()
 
-    contributions_coordinates: Coordinates = Coordinates(
-        {
-            "pressure": pressure_coordinate,
-            "wavelength": wavelength_coordinate,
-        }
-    )
+    contributions_coordinates: Coordinates = {
+        "pressure": pressure_coordinate,
+        "wavelength": wavelength_coordinate,
+    }
 
     dimension_names: tuple[str] = tuple(contributions_coordinates.keys())
 
     contribution_data: dict[str, Variable] = {
         contribution_component_name: Variable(
             dims=dimension_names,
-            data=contribution_component,
+            data=contribution_component.T,
             attrs={"units": "dimensionless"},
-        )
+        ).to_dict()
         for contribution_component_name, contribution_component in contributions.items()
     }
 
@@ -289,7 +291,7 @@ def compile_contributions_into_dataset(
             "dims": dimension_names,
             "data_vars": contribution_data,
         }
-    ).transpose("log_pressure", "wavelength")
+    ).transpose("pressure", "wavelength")
 
     if output_filepath_plus_prefix:
         contributions_output_filepath: Path = Path(

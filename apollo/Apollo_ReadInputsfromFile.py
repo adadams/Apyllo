@@ -127,7 +127,7 @@ class PressureParameters:
     minP: float
     maxP: float
     vres: int
-    P_profile: Optional[NDArray[np.float_]]
+    P_profile: Optional[NDArray[np.float64]]
 
 
 @dataclass
@@ -380,7 +380,7 @@ def read_in_settings_from_input_file(
 
 @dataclass
 class ReadinParameters:
-    plparams: NDArray[np.float_]  # Parameter list, must be length pllen
+    plparams: NDArray[np.float64]  # Parameter list, must be length pllen
     ensparams: list[
         int
     ]  # List of indices of parameters that will be varied in ensemble mode
@@ -388,10 +388,10 @@ class ReadinParameters:
 
 @dataclass
 class ParameterDistributionParameters:
-    mu: NDArray[np.float_]  # Gaussian means, must be length pllen
-    sigma: NDArray[np.float_]  # Standard errors, must be length pllen
-    bounds: NDArray[np.float_]  # Bounds, must have dimensions (pllen, 2)
-    guess: NDArray[np.float_]  # Used for initial conditions, must be length pllen
+    mu: NDArray[np.float64]  # Gaussian means, must be length pllen
+    sigma: NDArray[np.float64]  # Standard errors, must be length pllen
+    bounds: NDArray[np.float64]  # Bounds, must have dimensions (pllen, 2)
+    guess: NDArray[np.float64]  # Used for initial conditions, must be length pllen
 
 
 def set_radius(size_parameter: ParameterValue, dist: float) -> ParameterValue:
@@ -440,7 +440,9 @@ class FundamentalReadinParameters:
                 self.radius_case = RadiusInputType.norad
 
     def bodge_radius_parameter(
-        self, parameter_values: NDArray[np.float_], distance_to_system_in_parsecs: float
+        self,
+        parameter_values: NDArray[np.float64],
+        distance_to_system_in_parsecs: float,
     ) -> ParameterValue:
         size_value: float = parameter_values[self.radius_index]
 
@@ -451,7 +453,7 @@ class FundamentalReadinParameters:
         return set_radius(size_parameter, distance_to_system_in_parsecs)
 
     def bodge_gravity_parameter(
-        self, parameter_values: NDArray[np.float_]
+        self, parameter_values: NDArray[np.float64]
     ) -> ParameterValue:
         gravity_value: float = parameter_values[self.gravity_index]
 
@@ -461,9 +463,9 @@ class FundamentalReadinParameters:
 @dataclass
 class MolecularParameters:
     species: list[str]
-    weighted_molecular_weights: NDArray[np.float_]
-    weighted_scattering_cross_sections: NDArray[np.float_]
-    # mollist: NDArray[np.float_]
+    weighted_molecular_weights: NDArray[np.float64]
+    weighted_scattering_cross_sections: NDArray[np.float64]
+    # mollist: NDArray[np.float64]
 
 
 # NOTE: shuttle this to the GasReadin object.
@@ -482,12 +484,12 @@ class GasReadinParameters:
         self.ngas = self.gnum + 1
 
     def get_gas_nonfiller_log_abundances(
-        self, parameter_values: NDArray[np.float_]
-    ) -> NDArray[np.float_]:
+        self, parameter_values: NDArray[np.float64]
+    ) -> NDArray[np.float64]:
         return parameter_values[self.g1 : self.g2]
 
     def bodge_gas_parameters(
-        self, parameter_values: NDArray[np.float_]
+        self, parameter_values: NDArray[np.float64]
     ) -> list[ParameterValue]:
         return [
             ParameterValue(gas_parameter_name, gas_parameter_value)
@@ -497,7 +499,7 @@ class GasReadinParameters:
         ]
 
     def get_molecular_weights_and_scattering_opacities(
-        self, parameter_values: NDArray[np.float_]
+        self, parameter_values: NDArray[np.float64]
     ) -> MolecularParameters:
         gas_parameters = self.get_gas_nonfiller_log_abundances(parameter_values)
 
@@ -523,7 +525,7 @@ class TPReadinParameters:
             self.anum = self.anum - 1
 
     def bodge_TP_parameters(
-        self, parameter_values: NDArray[np.float_]
+        self, parameter_values: NDArray[np.float64]
     ) -> list[ParameterValue]:
         TP_parameter_values = parameter_values[self.a1 : self.a2]
 
@@ -631,7 +633,7 @@ class CloudReadinParameters:
         self.ilen = 10 + self.cnum
 
     def make_cloud_parameter_tuple(
-        self, parameter_values: NDArray[np.float_]
+        self, parameter_values: NDArray[np.float64]
     ) -> NamedTuple:
         cloud_model_case: CloudModel = CloudModel(self.cloudmod)
 
@@ -640,7 +642,7 @@ class CloudReadinParameters:
         )
 
     def bodge_cloud_parameters(
-        self, parameter_values: NDArray[np.float_]
+        self, parameter_values: NDArray[np.float64]
     ) -> dict[str, ParameterValue]:
         cloud_parameter_values = parameter_values[self.c1 : self.c2]
 
@@ -653,7 +655,9 @@ class CloudReadinParameters:
             )
         }
 
-    def get_cloud_filling_fraction(self, parameter_values: NDArray[np.float_]) -> float:
+    def get_cloud_filling_fraction(
+        self, parameter_values: NDArray[np.float64]
+    ) -> float:
         cloud_parameters: dict[str, ParameterValue] = self.bodge_cloud_parameters(
             parameter_values
         )
@@ -670,7 +674,7 @@ class CloudReadinParameters:
 class FluxScaler(NamedTuple):
     band_lower_wavelength_boundary: float
     band_upper_wavelength_boundary: float
-    scale_factor: NDArray[np.float_]
+    scale_factor: NDArray[np.float64]
 
 
 @dataclass
@@ -683,7 +687,7 @@ class CalibrationReadinParameters:
         self.e2 = self.e1 + self.enum
 
     def bodge_calibration_parameters(
-        self, parameter_values: NDArray[np.float_]
+        self, parameter_values: NDArray[np.float64]
     ) -> dict[str, ParameterValue]:
         calibration_parameter_values = parameter_values[self.e1 : self.e2]
 
@@ -698,7 +702,7 @@ class CalibrationReadinParameters:
 
     def get_flux_scalers(
         self,
-        parameter_values: NDArray[np.float_],
+        parameter_values: NDArray[np.float64],
         name_to_wavelength_range_mapper: dict[str, tuple[float, float]],
     ) -> list[FluxScaler]:
         calibration_parameters: dict[str, ParameterValue] = (

@@ -45,8 +45,8 @@ WORKING_DIRECTORY: Final[Path] = Path.cwd() / "extensions" / "helium_files"
 input_helium_spec_file: Final[Path] = WORKING_DIRECTORY / "hespec.dat"
 
 
-input_spec_file: NDArray[np.float_] = np.loadtxt(input_helium_spec_file)
-he_grid: NDArray[np.float_] = 10 ** np.where(
+input_spec_file: NDArray[np.float64] = np.loadtxt(input_helium_spec_file)
+he_grid: NDArray[np.float64] = 10 ** np.where(
     np.isnan(input_spec_file), -33.0, input_spec_file
 )
 
@@ -86,7 +86,7 @@ def get_number_of_wavelengths(
 
 def get_wavelengths_from_number_of_elements_and_resolution(
     starting_wavelength: float, number_of_elements: int, spectral_resolution: float
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     return starting_wavelength * np.exp(
         np.arange(number_of_elements) / spectral_resolution
     )
@@ -96,7 +96,7 @@ def wavelength_to_wavenumber(wavelength: float) -> float:
     return 1e4 / wavelength
 
 
-output_wavenumbers: NDArray[np.float_] = wavelength_to_wavenumber(
+output_wavenumbers: NDArray[np.float64] = wavelength_to_wavenumber(
     get_wavelengths_from_number_of_elements_and_resolution(
         starting_wavelength=OUTPUT_WAVELENGTH_MINIMUM,
         number_of_elements=get_number_of_wavelengths(
@@ -109,13 +109,13 @@ output_wavenumbers: NDArray[np.float_] = wavelength_to_wavenumber(
 
 @njit(float64[:, :](float64[:, :], int64[:], int64[:], float64[:], float64[:], float64))
 def calculate_opacities(
-    input_grid: NDArray[np.float_],
+    input_grid: NDArray[np.float64],
     temperature_indices: NDArray[np.int_],
     wavenumber_indices: NDArray[np.int_],
-    temperature_steps: NDArray[np.float_],
-    wavenumber_steps: NDArray[np.float_],
+    temperature_steps: NDArray[np.float64],
+    wavenumber_steps: NDArray[np.float64],
     amagat: float = amagat,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     result_array = np.zeros((temperature_indices.shape[0], wavenumber_indices.shape[0]))
 
     for i in range(temperature_indices.shape[0]):
@@ -144,7 +144,7 @@ def calculate_evenly_spaced_logtemperatures(
     minimum_temperature: float = INPUT_GRID_TEMPERATURE_MINIMUM,
     maximum_temperature: float = INPUT_GRID_TEMPERATURE_MAXIMUM,
     number_of_temperatures: int = config.number_of_temperature_points,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     delta_logT: float = (number_of_temperatures - 1) / np.log10(
         maximum_temperature / minimum_temperature
     )
@@ -156,10 +156,10 @@ def calculate_evenly_spaced_logtemperatures(
 
 class TemperatureIndices(NamedTuple):
     index_of_TP_profile_in_grid: NDArray[np.int_]
-    fractional_index_remainder: NDArray[np.float_]
+    fractional_index_remainder: NDArray[np.float64]
 
 
-def get_temperature_indices(TP_profile: NDArray[np.float_]) -> TemperatureIndices:
+def get_temperature_indices(TP_profile: NDArray[np.float64]) -> TemperatureIndices:
     fractional_index_remainder, index_of_TP_profile_in_grid = np.modf(
         (TP_profile - INPUT_GRID_TEMPERATURE_MINIMUM)
         / (INPUT_GRID_TEMPERATURE_MAXIMUM - INPUT_GRID_TEMPERATURE_MINIMUM)
@@ -186,7 +186,7 @@ def get_temperature_indices(TP_profile: NDArray[np.float_]) -> TemperatureIndice
     )
 
 
-output_temperature_profile: NDArray[np.float_] = (
+output_temperature_profile: NDArray[np.float64] = (
     10 ** calculate_evenly_spaced_logtemperatures()
 )
 
@@ -197,10 +197,10 @@ output_temperature_indices: TemperatureIndices = get_temperature_indices(
 
 class WavenumberIndices(NamedTuple):
     index_of_wavenumber_in_grid: NDArray[np.int_]
-    fractional_index_remainder: NDArray[np.float_]
+    fractional_index_remainder: NDArray[np.float64]
 
 
-def get_wavenumber_indices(wavenumbers: NDArray[np.float_]) -> WavenumberIndices:
+def get_wavenumber_indices(wavenumbers: NDArray[np.float64]) -> WavenumberIndices:
     wavenumber_indices: NDArray[np.int_] = np.clip(
         (wavenumbers - INPUT_GRID_WAVENUMBER_MINIMUM) / input_wavenumber_grid_step,
         a_min=0,
@@ -212,7 +212,7 @@ def get_wavenumber_indices(wavenumbers: NDArray[np.float_]) -> WavenumberIndices
     )
     upper_wavenumber_bin_edge = lower_wavenumber_bin_edge + input_wavenumber_grid_step
 
-    delta_wavenumber_indices: NDArray[np.float_] = (
+    delta_wavenumber_indices: NDArray[np.float64] = (
         wavenumbers - lower_wavenumber_bin_edge
     ) / (upper_wavenumber_bin_edge - lower_wavenumber_bin_edge)
 
@@ -226,7 +226,7 @@ output_wavenumber_indices: WavenumberIndices = get_wavenumber_indices(
     output_wavenumbers
 )
 
-output_opacity_grid: NDArray[np.float_] = calculate_opacities(
+output_opacity_grid: NDArray[np.float64] = calculate_opacities(
     he_grid,
     output_temperature_indices.index_of_TP_profile_in_grid,
     output_wavenumber_indices.index_of_wavenumber_in_grid,
@@ -242,7 +242,7 @@ def calculate_log_pressure(
     maximum_log_pressure: float = config.maximum_log10_pressure_in_bars
     + 6.0,  # pressure in cgs units = 1e-6 bar = 0.1 Pa
     number_of_pressure_layers: int = config.number_of_pressure_points,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     return np.logspace(
         start=minimum_log_pressure,
         stop=maximum_log_pressure,
@@ -253,16 +253,16 @@ def calculate_log_pressure(
 
 @njit
 def calculate_number_of_molecules_per_wavelength(
-    log_pressures: NDArray[np.float_],
-    TP_profile: NDArray[np.float_],
-) -> NDArray[np.float_]:
+    log_pressures: NDArray[np.float64],
+    TP_profile: NDArray[np.float64],
+) -> NDArray[np.float64]:
     # [pressure, temperature, wavenumber]
     return (
         np.expand_dims(log_pressures, axis=1) / np.expand_dims(TP_profile, axis=0) / k
     )
 
 
-output_pressures: NDArray[np.float_] = calculate_log_pressure()
+output_pressures: NDArray[np.float64] = calculate_log_pressure()
 
 number_of_spectral_elements: int = get_number_of_wavelengths(
     config.minimum_wavelength_in_microns,
@@ -271,7 +271,7 @@ number_of_spectral_elements: int = get_number_of_wavelengths(
 )
 
 
-output_molecular_density: NDArray[np.float_] = np.zeros(
+output_molecular_density: NDArray[np.float64] = np.zeros(
     (
         number_of_spectral_elements,
         config.number_of_pressure_points,
@@ -285,11 +285,11 @@ output_molecular_density: NDArray[np.float_] = np.zeros(
     "(w),(p),(t)->(w,p,t)",
 )
 def calculate_number_density_of_molecules(
-    delta_wavenumber_indices: NDArray[np.float_],
-    pressures: NDArray[np.float_],
-    temperatures: NDArray[np.float_],
-    array_to_store_number_density: NDArray[np.float_],
-) -> NDArray[np.float_]:
+    delta_wavenumber_indices: NDArray[np.float64],
+    pressures: NDArray[np.float64],
+    temperatures: NDArray[np.float64],
+    array_to_store_number_density: NDArray[np.float64],
+) -> NDArray[np.float64]:
     for i in range(delta_wavenumber_indices.shape[0]):
         array_to_store_number_density[i] = calculate_number_of_molecules_per_wavelength(
             pressures, temperatures
@@ -309,7 +309,7 @@ output_molecular_density = np.moveaxis(
 )  # swap axes to [pressure, temperature, wavenumber]
 
 
-total_attenuation_coefficients: NDArray[np.float_] = (
+total_attenuation_coefficients: NDArray[np.float64] = (
     output_opacity_grid * output_molecular_density
 )
 

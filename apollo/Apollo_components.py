@@ -3,7 +3,7 @@ from collections.abc import Callable
 from functools import partial
 from os.path import abspath
 from pathlib import Path
-from typing import TypedDict
+from typing import NamedTuple, TypedDict
 
 import numpy as np
 from numpy.typing import NDArray
@@ -533,8 +533,8 @@ def ReadInputsfromFile(
     }
 
 
-class ProcessedInputs(TypedDict):
-    parameters: NDArray[np.float_]
+class ProcessedInputs(NamedTuple):
+    parameters: NDArray[np.float64]
     MakePlanet_kwargs: CPlanetBlueprint
     MakeModel_initialization_kwargs: MakeModelBlueprint
     ModelObservable_initialization_kwargs: ObserveModelBlueprint

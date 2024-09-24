@@ -27,7 +27,7 @@ with open("apollo/formats/APOLLO_data_file_format.toml", "rb") as data_format_fi
 
 
 add_specifications_to_APOLLO_data: Callable[
-    [NDArray[np.float_]], dict[str, AttributeBlueprint]
+    [NDArray[np.float64]], dict[str, AttributeBlueprint]
 ] = partial(format_array_with_specifications, data_format=APOLLO_DATA_FORMAT)
 
 load_APOLLO_data_file: Callable[[Pathlike], dict[str, SpecifiedDataBlueprint]] = (

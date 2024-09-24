@@ -12,8 +12,8 @@ from apollo.Apollo_components import (
     ProcessInputs,
     ReadInputsfromFile,
 )
-from custom_types import Pathlike
 from apollo.planet import Planet
+from custom_types import Pathlike
 
 OPACITY_DIRECTORY = "/Volumes/ResearchStorage/Opacities_0v10/"
 
@@ -35,25 +35,25 @@ def prep_inputs_for_model(input_filepath: Pathlike) -> dict:
 
     processed_inputs: ProcessedInputs = ProcessInputs(**inputs)
 
-    planet: Planet = MakePlanet(processed_inputs["MakePlanet_kwargs"])
+    planet: Planet = MakePlanet(processed_inputs.MakePlanet_kwargs)
 
     get_model: Callable = planet.MakeModel(
-        processed_inputs["MakeModel_initialization_kwargs"]
+        processed_inputs.MakeModel_initialization_kwargs
     )
 
     observation: Callable = MakeObservation(
-        processed_inputs["ModelObservable_initialization_kwargs"]
+        processed_inputs.ModelObservable_initialization_kwargs
     )
 
-    binned_wavelengths: NDArray[np.float_] = processed_inputs[
-        "ModelObservable_initialization_kwargs"
-    ]["data_wavelengths"]
+    binned_wavelengths: NDArray[np.float64] = (
+        processed_inputs.ModelObservable_initialization_kwargs["data_wavelengths"]
+    )
 
     return {
         "prepped_inputs": PreppedInputs(
             model_function=get_model,
             observation=observation,
-            model_parameters=processed_inputs["parameters"],
+            model_parameters=processed_inputs.parameters,
         ),
         "binned_wavelengths": binned_wavelengths,
     }

@@ -32,9 +32,9 @@ void Planet::getProfLayer(vector<double> tpprofile)
 
 
 def hydrostatic_equilibrium(
-    pressure: NDArray[np.float_],
-    temperature: NDArray[np.float_],
+    pressure: NDArray[np.float64],
+    temperature: NDArray[np.float64],
     mass: float,
     radius: float,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     pass

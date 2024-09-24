@@ -51,8 +51,8 @@ def turn_dictionary_into_string(dictionary: dict[str, Any]) -> str:
 
 
 def interleave(
-    first_terms: NDArray[np.float_],
-    second_terms: NDArray[np.float_],
+    first_terms: NDArray[np.float64],
+    second_terms: NDArray[np.float64],
     interleaved_axis: int = -1,
 ):
     interleaved_dimension_size = (

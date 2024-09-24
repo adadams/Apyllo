@@ -18,7 +18,7 @@ sys.path.append(APOLLO_DIRECTORY)
 
 
 class MultiFigureBlueprintButt(TypedDict):
-    contributions: dict[str, NDArray[np.float_]]
+    contributions: dict[str, NDArray[np.float64]]
     list_of_band_boundaries: Sequence[Sequence[float]]
     band_breaks: Sequence[Sequence[float]]
     contributions_max: float

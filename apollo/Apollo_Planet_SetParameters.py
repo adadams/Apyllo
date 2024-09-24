@@ -2,7 +2,7 @@ import sys
 from collections.abc import Callable
 from functools import partial
 from os.path import abspath
-from typing import Final, NamedTuple, Optional, TypedDict, Union
+from typing import Final, NamedTuple, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
@@ -19,7 +19,6 @@ from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
     PressureParameters,
     TransitParameters,
 )
-from apollo.src.wrapPlanet import PyPlanet  # noqa: E402
 from apollo.submodels import TP  # noqa: E402
 
 # REARTH_IN_CM = R_earth.to(cm).value
@@ -31,7 +30,7 @@ RJUPITER_IN_REARTH: Final[float] = 11.2
 PARSEC_IN_REARTH: Final[float] = 4.838e9
 
 
-class MakeParams1Blueprint(TypedDict):
+class MakeParams1Blueprint(NamedTuple):
     radius_parameter: ParameterValue
     gravity_parameter: ParameterValue
     cloud_deck_parameter: ParameterValue
@@ -41,7 +40,7 @@ class MakeParams1Blueprint(TypedDict):
     pressure_parameters: PressureParameters
 
 
-class Params1Blueprint(TypedDict):
+class Params1Blueprint(NamedTuple):
     radius: float
     log_gravity: float
     cloud_deck_log_pressure: float
@@ -52,7 +51,6 @@ class Params1Blueprint(TypedDict):
     minimum_log_pressure: float
     maximum_log_pressure: float
     semimajor_axis: float
-    cloud_parameters: Optional[NamedTuple]
 
 
 def make_params1(
@@ -72,7 +70,7 @@ def make_params1(
         molecular_parameters.weighted_scattering_cross_sections
     )
 
-    parameters_minus_clouds: dict = dict(
+    params1_minus_clouds: Params1Blueprint = Params1Blueprint(
         radius=radius_parameter.value / REARTH_IN_CM,
         log_gravity=gravity_parameter.value,
         cloud_deck_log_pressure=cloud_deck_log_pressure,
@@ -85,21 +83,22 @@ def make_params1(
         semimajor_axis=transit_parameters.sma,
     )
 
-    return (
-        Params1Blueprint(**parameters_minus_clouds)
+    result: list[float] = (
+        list(params1_minus_clouds)
         if cloud_parameters is None
-        else Params1Blueprint(
-            **parameters_minus_clouds, cloud_parameters=cloud_parameters
-        )
+        else list(params1_minus_clouds) + list(cloud_parameters)
     )
+    print(f"make_params1: {result=}")
+
+    return result
 
 
-def make_abund(free_gas_log_abundances: NDArray[np.float_]) -> NDArray[np.float_]:
+def make_abund(free_gas_log_abundances: NDArray[np.float64]) -> NDArray[np.float64]:
     if len(free_gas_log_abundances) == 0:
         return [1.0]
 
     else:
-        free_gas_abundances: NDArray[np.float_] = 10**free_gas_log_abundances
+        free_gas_abundances: NDArray[np.float64] = 10**free_gas_log_abundances
         free_abundance_sum: float = np.sum(free_gas_abundances)
 
         filler_abundance: float = 1.0 - free_abundance_sum
@@ -111,28 +110,28 @@ def make_abund(free_gas_log_abundances: NDArray[np.float_]) -> NDArray[np.float_
 
 def make_pressures_evenly_log_spaced(
     num_layers_final: int, minimum_log_pressure: float, maximum_log_pressure: float
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     return np.linspace(minimum_log_pressure, maximum_log_pressure, num=num_layers_final)
 
 
 def get_TP_profile_function(
     TP_model_name: str, pressure_parameters: PressureParameters
 ) -> TP.isTPFunction:
-    TP_model_name: str = (
-        TP_model_name if TP_model_name != "piette" else "modified_piette"
-    )  # NOTE: bodge for now
+    # TP_model_name: str = (
+    #    TP_model_name if TP_model_name != "piette" else "modified_piette"
+    # )  # NOTE: bodge for now
     TP_profile_function: TP.isTPFunction = getattr(TP, TP_model_name)
     # assert issubclass(
     #    TP_profile_function, TP.isTPFunction
     # ), f"{TP_profile_function} does not follow the TP.isTPFunction protocol."
 
-    pressures: NDArray[np.float_] = make_pressures_evenly_log_spaced(
+    pressures: NDArray[np.float64] = make_pressures_evenly_log_spaced(
         num_layers_final=pressure_parameters.vres,
         minimum_log_pressure=pressure_parameters.minP - 6,
         maximum_log_pressure=pressure_parameters.maxP - 6,
     )
 
-    TP_profile_function: Callable[[NDArray[np.float_]], NDArray[np.float_]] = partial(
+    TP_profile_function: Callable[[NDArray[np.float64]], NDArray[np.float64]] = partial(
         TP_profile_function, pressures=pressures
     )
 
@@ -142,16 +141,16 @@ def get_TP_profile_function(
 # NOTE: This function is currently not used. We can try to incorporate it
 # once we fold in the opacity data structures that tell us the temperature bounds.
 def clip_TP_profile_to_opacity_limits(
-    tplong: NDArray[np.float_], opacity_T_min: float, opacity_T_max: float
-) -> NDArray[np.float_]:
+    tplong: NDArray[np.float64], opacity_T_min: float, opacity_T_max: float
+) -> NDArray[np.float64]:
     return np.clip(tplong, opacity_T_min, opacity_T_max)
 
 
-class SetParamsBlueprint(TypedDict):
-    params1: NDArray[np.float_]
-    abund: NDArray[np.float_]
-    rxsec: NDArray[np.float_]
-    tplong: NDArray[np.float_]
+class SetParamsBlueprint(NamedTuple):
+    params1: NDArray[np.float64]
+    abund: NDArray[np.float64]
+    rxsec: NDArray[np.float64]
+    tplong: NDArray[np.float64]
 
 
 def compile_Cclass_parameters(
@@ -162,11 +161,11 @@ def compile_Cclass_parameters(
     TP_model_parameters: list[ParameterValue],
     pressure_parameters: PressureParameters,
 ) -> SetParamsBlueprint:
-    log_nonfiller_abundances: NDArray[np.float_] = np.array(
+    log_nonfiller_abundances: NDArray[np.float64] = np.array(
         [gas_parameter.value for gas_parameter in gas_parameters]
     )
 
-    weighted_scattering_cross_sections: NDArray[np.float_] = (
+    weighted_scattering_cross_sections: NDArray[np.float64] = (
         molecular_parameters.weighted_scattering_cross_sections
     )
 
@@ -178,14 +177,16 @@ def compile_Cclass_parameters(
         TP_model_parameter.value for TP_model_parameter in TP_model_parameters
     ]
 
-    TP_profile: NDArray[np.float_] = TP_function(*TP_args)
+    TP_profile: NDArray[np.float64] = TP_function(*TP_args)
 
-    return {
-        "params1": list(params1.values()),
+    result = {
+        "params1": list(params1),
         "abund": make_abund(log_nonfiller_abundances),
         "rxsec": weighted_scattering_cross_sections,
         "tplong": TP_profile,
     }
+
+    return result
 
 
 def set_parameters(
@@ -195,7 +196,7 @@ def set_parameters(
     TP_model_name: str,
     TP_model_parameters: list[ParameterValue],
     pressure_parameters: PressureParameters,
-) -> PyPlanet:
+) -> list[NDArray[np.float64]]:
     set_params_kwargs: SetParamsBlueprint = compile_Cclass_parameters(
         params1=params1,
         molecular_parameters=molecular_parameters,
@@ -205,10 +206,9 @@ def set_parameters(
         pressure_parameters=pressure_parameters,
     )
 
-    set_params_args: list = [
+    return [
         set_params_kwargs["params1"],
         set_params_kwargs["abund"],
         set_params_kwargs["rxsec"],
         set_params_kwargs["tplong"],
     ]
-    return set_params_args

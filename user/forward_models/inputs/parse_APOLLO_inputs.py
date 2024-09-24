@@ -17,6 +17,7 @@ class APOLLOParameterEntry:
 
 
 NUMBER_OF_PARAMETER_COLUMNS = len(APOLLOParameterEntry.__slots__)
+print(f"{NUMBER_OF_PARAMETER_COLUMNS=}")
 
 
 def is_parameter_line(line_name: str, line_entries: list[Any]):

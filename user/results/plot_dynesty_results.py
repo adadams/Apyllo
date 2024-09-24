@@ -1,14 +1,11 @@
 import sys
-from os.path import abspath
 from pathlib import Path
 from typing import Any, Final
 
 from matplotlib.pyplot import style
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/APOLLO"
-)
-sys.path.append(APOLLO_DIRECTORY)
+APOLLO_DIRECTORY = Path.home() / "Documents" / "Astronomy" / "code" / "Apyllo"
+sys.path.append(str(APOLLO_DIRECTORY))
 
 
 from apollo.retrieval.results.IO import unpack_results_filepaths  # noqa: E402
@@ -44,6 +41,7 @@ if __name__ == "__main__":
         "HK+JWST_2M2236_logg-free_cloudy": "orangered",
         "HK+JWST_2M2236_logg-normal": "darkorange",
         "JWST-only_2M2236_logg-free": "mediumpurple",
+        "JWST-only_2M2236_logg-free/self-retrieval_test": "#444444",
         "JWST-only_2M2236_logg-normal": "indigo",
     }
 

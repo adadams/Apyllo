@@ -30,6 +30,6 @@ class ParamsSetParamsAdapter:
 
 @dataclass
 class OtherSetParamsAdapter:
-    gas_log_abundances: NDArray[np.float_]
-    gas_cross_sections: NDArray[np.float_]
-    TP_profile: NDArray[np.float_]
+    gas_log_abundances: NDArray[np.float64]
+    gas_cross_sections: NDArray[np.float64]
+    TP_profile: NDArray[np.float64]

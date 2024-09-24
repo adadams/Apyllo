@@ -13,7 +13,7 @@ from apollo.submodels.function_model import make_model
 class isTPFunction(Protocol):
     def __call__(
         self, *args, log_pressures: ArrayLike, **kwargs
-    ) -> NDArray[np.float_]: ...
+    ) -> NDArray[np.float64]: ...
 
 
 ########## ANJALI PIETTE et. al. Profile ##########
@@ -24,8 +24,8 @@ class isTPFunction(Protocol):
 # 1–19. http://arxiv.org/abs/2007.15004.
 def general_piette_function(
     *temperatures: Sequence[float],
-    log_pressure_nodes: NDArray[np.float_],
-    log_pressures: NDArray[np.float_],
+    log_pressure_nodes: NDArray[np.float64],
+    log_pressures: NDArray[np.float64],
     smoothing_parameter: float,
 ):
     interpolated_function = monotonic_interpolation(log_pressure_nodes, temperatures)
@@ -54,7 +54,7 @@ T_2p5 = { print_name = '$T_{2.5}$', units = 'kelvin' }
 
 
 @make_model(path_to_metadata=modified_piette_metadata)
-def modified_piette(
+def piette(
     T_m4: float,
     T_m3: float,
     T_m2: float,
@@ -65,8 +65,8 @@ def modified_piette(
     T_1p5: float,
     T_2: float,
     T_2p5: float,
-    pressures: NDArray[np.float_],
-) -> NDArray[np.float_]:
+    pressures: NDArray[np.float64],
+) -> NDArray[np.float64]:
     log_pressure_nodes = np.array([-4, -3, -2, -1, 0, 0.5, 1, 1.5, 2, 2.5])
 
     return general_piette_function(

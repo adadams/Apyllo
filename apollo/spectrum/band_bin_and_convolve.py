@@ -12,7 +12,7 @@ def get_wavelengths_from_wavelength_bins(wavelength_bin_starts, wavelength_bin_e
 
 def get_wavelength_bins_from_wavelengths(
     wavelengths: ArrayLike,
-) -> tuple[NDArray[np.float_], NDArray[np.float_]]:
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     half_wavelength_differences = np.diff(wavelengths) / 2
 
     wavelength_bin_starts = wavelengths - np.hstack(
@@ -27,13 +27,13 @@ def get_wavelength_bins_from_wavelengths(
 def get_bin_spacings_from_wavelength_bins(
     wavelength_bin_starts: ArrayLike,
     wavelength_bin_ends: ArrayLike,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     return np.subtract(wavelength_bin_ends, wavelength_bin_starts)
 
 
 def get_bin_spacings_from_wavelengths(
     wavelengths: ArrayLike,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     wavelength_bin_starts, wavelength_bin_ends = get_wavelength_bins_from_wavelengths(
         wavelengths
     )
@@ -86,16 +86,16 @@ def find_band_slices_from_wavelength_bins(
 
 @dataclass
 class WavelengthBins:
-    wavelength_bin_starts: NDArray[np.float_]
-    wavelength_bin_ends: NDArray[np.float_]
+    wavelength_bin_starts: NDArray[np.float64]
+    wavelength_bin_ends: NDArray[np.float64]
 
 
 @dataclass
 class FractionalBinIndices:
     ibinlo: NDArray[np.int_]
     ibinhi: NDArray[np.int_]
-    fbinlo: NDArray[np.float_]
-    fbinhi: NDArray[np.float_]
+    fbinlo: NDArray[np.float64]
+    fbinhi: NDArray[np.float64]
 
 
 def GetBinIndices(
@@ -103,11 +103,11 @@ def GetBinIndices(
 ) -> FractionalBinIndices:
     blen: int = int(original_number_of_wavelengths / binw)
 
-    ibinlo: NDArray[np.float_] = np.arange(blen) * binw
-    ibinhi: NDArray[np.float_] = (np.arange(blen) + 1) * binw
+    ibinlo: NDArray[np.float64] = np.arange(blen) * binw
+    ibinhi: NDArray[np.float64] = (np.arange(blen) + 1) * binw
 
-    fbinlo: NDArray[np.float_] = np.modf(ibinlo)[0]
-    fbinhi: NDArray[np.float_] = np.modf(ibinhi)[0]
+    fbinlo: NDArray[np.float64] = np.modf(ibinlo)[0]
+    fbinhi: NDArray[np.float64] = np.modf(ibinhi)[0]
 
     SMALL_NUDGE: Final[float] = 1e-6
     ibinlo[fbinlo == 0.0] = ibinlo[fbinlo == 0.0] + SMALL_NUDGE
@@ -127,20 +127,20 @@ def BinWavelengths(
         )
 
     lower_edge_indices: NDArray[np.int_] = np.floor(bin_indices.ibinlo).astype(int)
-    fractional_lower_bin: NDArray[np.float_] = np.where(
+    fractional_lower_bin: NDArray[np.float64] = np.where(
         lower_edge_indices != len(wavelo) - 1, bin_indices.fbinlo, 0
     )
 
-    binlo: NDArray[np.float_] = (1 - bin_indices.fbinlo) * np.take(
+    binlo: NDArray[np.float64] = (1 - bin_indices.fbinlo) * np.take(
         wavelo, lower_edge_indices
     ) + fractional_lower_bin * np.take(wavelo, lower_edge_indices + 1)
 
     upper_edge_indices: NDArray[np.int_] = np.floor(bin_indices.ibinhi).astype(int)
-    fractional_upper_bin: NDArray[np.float_] = np.where(
+    fractional_upper_bin: NDArray[np.float64] = np.where(
         upper_edge_indices != len(wavelo) - 1, bin_indices.fbinhi, 0
     )
 
-    binhi: NDArray[np.float_] = (1 - bin_indices.fbinhi) * np.take(
+    binhi: NDArray[np.float64] = (1 - bin_indices.fbinhi) * np.take(
         wavehi, upper_edge_indices - 1
     ) + fractional_upper_bin * np.take(wavehi, upper_edge_indices)
 
@@ -160,19 +160,19 @@ def BinFlux(
         [slice(start, stop) for start, stop in zip(int_upper_ibinlo, int_lower_ibinhi)]
     )
 
-    binflux_without_edges: NDArray[np.float_] = np.array(
+    binflux_without_edges: NDArray[np.float64] = np.array(
         [np.sum(flux[slice]) for slice in binning_slices]
     )
 
-    fractional_lower_bin: NDArray[np.float_] = 1 - bin_indices.fbinlo
-    binflux_lower_edge: NDArray[np.float_] = fractional_lower_bin * np.take(
+    fractional_lower_bin: NDArray[np.float64] = 1 - bin_indices.fbinlo
+    binflux_lower_edge: NDArray[np.float64] = fractional_lower_bin * np.take(
         flux, lower_edge_indices
     )
 
-    fractional_upper_bin: NDArray[np.float_] = np.where(
+    fractional_upper_bin: NDArray[np.float64] = np.where(
         int_lower_ibinhi < len(flux), bin_indices.fbinhi, 0
     )
-    binflux_upper_edge: NDArray[np.float_] = fractional_upper_bin * np.take(
+    binflux_upper_edge: NDArray[np.float64] = fractional_upper_bin * np.take(
         flux, upper_edge_indices
     )
 
@@ -198,7 +198,7 @@ def BinSpec(wavelo, wavehi, flux, binw):
         wavelo, wavehi, bin_indices, binw
     )
 
-    binflux: NDArray[np.float_] = BinFlux(flux, binw, bin_indices)
+    binflux: NDArray[np.float64] = BinFlux(flux, binw, bin_indices)
 
     return (
         binned_wavelengths.wavelength_bin_starts,

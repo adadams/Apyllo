@@ -75,8 +75,8 @@ HHe_header: str = (
     f"{config.mean_resolution}"
 )
 
-H2_opacity: NDArray[np.float_] = np.loadtxt(H2_input_opacity_file, skiprows=1)
-He_opacity: NDArray[np.float_] = np.loadtxt(He_input_opacity_file, skiprows=1)
+H2_opacity: NDArray[np.float64] = np.loadtxt(H2_input_opacity_file, skiprows=1)
+He_opacity: NDArray[np.float64] = np.loadtxt(He_input_opacity_file, skiprows=1)
 
 assert np.shape(H2_opacity) == np.shape(
     He_opacity
@@ -151,7 +151,7 @@ with open(He_input_opacity_file, "r") as f:
 print(f"Checking H2 input file:\n{check_header_info_against_user_config(H2_header)}")
 print(f"Checking He input file:\n{check_header_info_against_user_config(He_header)}")
 
-HHe_opacity: NDArray[np.float_] = (
+HHe_opacity: NDArray[np.float64] = (
     He_molar_fraction * He_opacity + H2_molar_fraction * H2_opacity
 )
 

@@ -9,23 +9,21 @@ from numpy.typing import NDArray
 from xarray import Dataset
 
 from apollo.spectrum.band_bin_and_convolve import find_band_slices_from_wavelength_bins
-from apollo.spectrum.read_spectral_data_into_xarray import (
-    read_APOLLO_data_into_dictionary,
-)
+from apollo.spectrum.read_spectral_data_into_xarray import read_APOLLO_data_into_dataset
 from apollo.visualization_functions import create_monochromatic_linear_colormap
 
 
 class ContourBlueprint(TypedDict):
-    X: NDArray[np.float_]
-    Y: NDArray[np.float_]
-    Z: NDArray[np.float_]
+    X: NDArray[np.float64]
+    Y: NDArray[np.float64]
+    Z: NDArray[np.float64]
 
 
 class ContourAestheticsBlueprint(TypedDict):
     cmap: Optional[str]
     colors: Optional[ColorType]
     linestyles: Optional[str]
-    levels: NDArray[np.float_]
+    levels: NDArray[np.float64]
     alpha: float  # 0 to 1
     zorder: int
 
@@ -46,12 +44,10 @@ def calculate_maximum_contour_value(
 
 
 def get_band_slices_from_data(data_filepath: str) -> tuple[slice]:
-    data: dict[str, NDArray[np.float_]] = read_APOLLO_data_into_dictionary(
-        data_filepath
-    )
+    data: Dataset = read_APOLLO_data_into_dataset(data_filepath)
 
-    wavelength_bin_starts: NDArray[np.float_] = data["wavelength_bin_starts"]
-    wavelength_bin_ends: NDArray[np.float_] = data["wavelength_bin_ends"]
+    wavelength_bin_starts: NDArray[np.float64] = data.wavelength_bin_starts.values()
+    wavelength_bin_ends: NDArray[np.float64] = data.wavelength_bin_ends.values()
 
     return find_band_slices_from_wavelength_bins(
         wavelength_bin_starts, wavelength_bin_ends
@@ -76,7 +72,7 @@ def make_contour_inputs_from_contributions(
     contour_x = contour_x[slices]
     contour_y = contour_y[slices]
 
-    contour_values: NDArray[np.float_] = np.log10((contribution.to_numpy().T)[slices])
+    contour_values: NDArray[np.float64] = np.log10((contribution.to_numpy().T)[slices])
 
     return ContourBlueprint(X=contour_x, Y=contour_y, Z=contour_values)
 

@@ -1,8 +1,8 @@
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from custom_types import Pathlike
 from apollo.submodels import TP
+from custom_types import Pathlike
 from user.forward_models.inputs.parse_APOLLO_inputs import parse_APOLLO_input_file
 
 
@@ -13,6 +13,7 @@ def get_TP_function_from_APOLLO_parameter_file(
         parsed_retrieved_file = parse_APOLLO_input_file(
             retrieved_file, **parsing_kwargs
         )
+        print(f"{parsed_retrieved_file=}")
 
     TP_function_name = parsed_retrieved_file["parameters"]["Atm"]["options"][0]
 

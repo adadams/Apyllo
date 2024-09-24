@@ -41,7 +41,7 @@ OXYGEN_COUNT: Final[Enum] = Enum("CarbonCount", oxygen_atoms_per_molecule)
 
 def calculate_CtoO_and_metallicity(
     list_of_gases: Sequence[float], gas_logabundances: Sequence[float]
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     carbon = 0.0
     oxygen = 0.0
     metals = 0.0

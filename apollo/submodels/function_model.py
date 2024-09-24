@@ -68,7 +68,7 @@ class FunctionModel:
             + f"{metadata_print_style}"
         )
 
-    def __call__(self, *args, **kwargs) -> NDArray[np.float_]:
+    def __call__(self, *args, **kwargs) -> NDArray[np.float64]:
         return self.loaded_function(*args, **kwargs)
 
     def load_parameters(self, *args, **kwargs) -> Self:

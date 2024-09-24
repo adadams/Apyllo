@@ -1,16 +1,19 @@
 from collections.abc import Callable, Sequence
 from os import PathLike
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional, TypeAlias, TypedDict
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from pint import Unit, UnitRegistry
 from pint_xarray import setup_registry
-from xarray import Coordinates, DataArray, Dataset, Variable, apply_ufunc
+from xarray import DataArray, Dataset, Variable, apply_ufunc
 
 from user_directories import USER_DIRECTORY
 
 ADDITIONAL_UNITS_FILE = USER_DIRECTORY / "specifications" / "additional_units.txt"
+
+Coordinates: TypeAlias = dict[str, Variable]
+# due to compatibility issues, have to use a version of xarray before Coordinates was an explicit type
 
 
 class AttributeBlueprint(TypedDict):
@@ -18,13 +21,13 @@ class AttributeBlueprint(TypedDict):
 
 
 class SpecifiedDataBlueprint(TypedDict):
-    data: NDArray[np.float_]
+    data: NDArray[np.float64]
     attrs: Optional[AttributeBlueprint]
 
 
 class VariableBlueprint(TypedDict):
     dims: str | Sequence[str]
-    data: NDArray[np.float_]
+    data: NDArray[np.float64]
     attrs: Optional[AttributeBlueprint]
     encoding: Optional[dict[str, Any]]
 
@@ -85,7 +88,7 @@ def apply_type_preserving_function(): ...
 
 
 def format_array_with_specifications(
-    data_array: NDArray[np.float_],
+    data_array: NDArray[np.float64],
     data_format: dict[str, AttributeBlueprint],
 ) -> dict[str, SpecifiedDataBlueprint]:
     if len(data_format) != len(data_array):

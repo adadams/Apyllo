@@ -30,7 +30,7 @@ class CrossSectionTableHeader:
     effective_resolution: float
 
     @property
-    def pressures(self) -> NDArray[np.float_]:
+    def pressures(self) -> NDArray[np.float64]:
         return np.linspace(
             self.minimum_log_pressure,
             self.maximum_log_pressure,
@@ -38,7 +38,7 @@ class CrossSectionTableHeader:
         )
 
     @property
-    def temperatures(self) -> NDArray[np.float_]:
+    def temperatures(self) -> NDArray[np.float64]:
         return np.logspace(
             self.minimum_log_temperature,
             self.maximum_log_temperature,
@@ -46,7 +46,7 @@ class CrossSectionTableHeader:
         )
 
     @property
-    def wavelengths(self) -> NDArray[np.float_]:
+    def wavelengths(self) -> NDArray[np.float64]:
         return self.minimum_wavelength * np.exp(
             np.arange(self.number_of_spectral_elements) / self.effective_resolution
         )
@@ -197,9 +197,9 @@ def load_crosssections_into_array(
 
 
 def load_crosssections_into_dataset(
-    pressures: NDArray[np.float_],
-    temperatures: NDArray[np.float_],
-    wavelengths: NDArray[np.float_],
+    pressures: NDArray[np.float64],
+    temperatures: NDArray[np.float64],
+    wavelengths: NDArray[np.float64],
     filepaths: dict[str, Pathlike],
     excluded_species: list[str] = None,
 ):

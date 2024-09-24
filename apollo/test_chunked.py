@@ -1,22 +1,26 @@
 import sys
-from os.path import abspath
 from pathlib import Path
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
+from matplotlib import pyplot as plt
+
+APOLLO_DIRECTORY = str(Path.cwd().absolute())
 if APOLLO_DIRECTORY not in sys.path:
     sys.path.append(APOLLO_DIRECTORY)
+
 from apollo.Apollo_chunked import (  # noqa: E402
     generate_emission_spectrum_from_APOLLO_file,
 )
+from apollo.Apollo_ProcessInputs import SpectrumWithWavelengths  # noqa: E402
 
-TEST_2M2236_FILEPATH: Path = Path(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Results/2M2236/spectral_range/2M2236.Piette.G395H.retrieved.ensemble.2024-01-22.dat"
+TEST_2M2236_FILEPATH: Path = (
+    Path.cwd() / "test_models" / "2M2236.potluck.test-model.desktop.dat"
 )
 
-emission_flux_at_surface = generate_emission_spectrum_from_APOLLO_file(
-    TEST_2M2236_FILEPATH
+emission_flux_at_surface: SpectrumWithWavelengths = (
+    generate_emission_spectrum_from_APOLLO_file(TEST_2M2236_FILEPATH)
 )
 
 print(f"{emission_flux_at_surface=}")
+
+plt.plot(emission_flux_at_surface.wavelengths, emission_flux_at_surface.flux)
+plt.savefig("test_chunked.pdf", bbox_inches="tight", dpi=150)

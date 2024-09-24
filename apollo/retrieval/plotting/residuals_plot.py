@@ -15,8 +15,8 @@ def calculate_residuals(
 
 def generate_residual_plot_by_band(
     residual_axis: plt.Axes,
-    wavelengths: NDArray[np.float_],
-    residuals: NDArray[np.float_],
+    wavelengths: NDArray[np.float64],
+    residuals: NDArray[np.float64],
     plot_color: str,
     plot_kwargs: dict[str, Any] = dict(
         linewidth=3, linestyle="solid", alpha=1, zorder=2

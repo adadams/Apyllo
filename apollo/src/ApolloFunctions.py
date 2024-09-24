@@ -83,7 +83,7 @@ def BinBands(bandlo, bandhi, convflux, converr, databin):
 
 def SliceModel_bindex(
     band_limits: Sequence[tuple[float]],
-    opacwave: NDArray[np.float_],
+    opacwave: NDArray[np.float64],
     minDL: float,
     maxDL: float,
 ) -> tuple[list[int]]:
@@ -134,7 +134,7 @@ def SliceModel_modindex(
 
 def SliceModel_modwave(
     opacwave, j_starts: Sequence[int], j_ends: Sequence[int]
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     slwave = []
 
     for i, (js, je) in enumerate(zip(j_starts, j_ends)):
@@ -151,9 +151,9 @@ def SliceModel_modwave(
 
 
 def SliceModel(
-    bandlo: Sequence[NDArray[np.float_]],
-    bandhi: Sequence[NDArray[np.float_]],
-    opacwave: NDArray[np.float_],
+    bandlo: Sequence[NDArray[np.float64]],
+    bandhi: Sequence[NDArray[np.float64]],
+    opacwave: NDArray[np.float64],
     minDL: float,
     maxDL: float,
 ):

@@ -14,17 +14,17 @@ if APOLLO_DIRECTORY not in sys.path:
 from apollo.src.wrapPlanet import PyPlanet  # noqa: E402
 
 
-def get_spectrum(cclass: PyPlanet) -> NDArray[np.float_]:
+def get_spectrum(cclass: PyPlanet) -> NDArray[np.float64]:
     return cclass.get_Spectrum()
 
 
-def get_clear_spectrum(cclass: PyPlanet) -> NDArray[np.float_]:
+def get_clear_spectrum(cclass: PyPlanet) -> NDArray[np.float64]:
     return cclass.get_ClearSpectrum()
 
 
 def get_fractional_cloud_spectrum(
     cclass: PyPlanet, cloud_fraction: float
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     assert 0 <= cloud_fraction <= 1, "Cloud fraction must be between 0 and 1"
 
     return (1 - cloud_fraction) * get_clear_spectrum(

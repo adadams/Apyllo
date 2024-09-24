@@ -42,7 +42,7 @@ def check_inputs_are_preserved(
 
 
 def quick_replace_input_parameters(
-    inputs: dict, MLE_parameter_values: NDArray[np.float_]
+    inputs: dict, MLE_parameter_values: NDArray[np.float64]
 ) -> dict:
     MLE_dictionary = inputs.copy()
 

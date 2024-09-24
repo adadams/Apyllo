@@ -17,8 +17,8 @@ from user.plots.plots_config import DEFAULT_PLOT_FILETYPES, DEFAULT_SAVE_PLOT_KW
 
 
 class CornerplotBlueprint(TypedDict):
-    samples: NDArray[np.float_]
-    weights: NDArray[np.float_]
+    samples: NDArray[np.float64]
+    weights: NDArray[np.float64]
     group_name: str
     parameter_names: Sequence[str]
     parameter_range: Sequence[Sequence[float]]

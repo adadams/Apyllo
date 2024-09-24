@@ -107,7 +107,7 @@ class RetrievalParameter:
 
 
 def convert_area_ratio_to_radius(
-    area_ratio: float | NDArray[np.float_], dist: float
+    area_ratio: float | NDArray[np.float64], dist: float
 ) -> float:
     return 10**area_ratio * dist**2 * PARSEC_IN_REARTH**2
 
@@ -125,24 +125,24 @@ def convert_area_parameter_to_radius_parameter(
 
 
 class SpectrumWithWavelengths(msgspec.Struct):
-    wavelengths: NDArray[np.float_]
-    flux: NDArray[np.float_]
+    wavelengths: NDArray[np.float64]
+    flux: NDArray[np.float64]
 
 
 @dataclass
 class DataContainer:
     # NOTE: this is a clone of an existing container for APOLLO-style data.
-    wavelo: NDArray[np.float_]
-    wavehi: NDArray[np.float_]
-    # wavemid: Optional[NDArray[np.float_]]
-    flux: NDArray[np.float_]
+    wavelo: NDArray[np.float64]
+    wavehi: NDArray[np.float64]
+    # wavemid: Optional[NDArray[np.float64]]
+    flux: NDArray[np.float64]
 
     @property
     def wavemid(self):
         return (self.wavehi + self.wavelo) / 2
 
     def make_spectrum(self) -> SpectrumWithWavelengths:
-        wavelengths: NDArray[np.float_] = get_wavelengths_from_wavelength_bins(
+        wavelengths: NDArray[np.float64] = get_wavelengths_from_wavelength_bins(
             wavelength_bin_starts=self.wavelo, wavelength_bin_ends=self.wavehi
         )
 
@@ -151,12 +151,12 @@ class DataContainer:
 
 @dataclass
 class DataContainerwithError(DataContainer):
-    err: NDArray[np.float_]
+    err: NDArray[np.float64]
 
 
 class DataContainerwithErrors(DataContainer):
-    errlo: NDArray[np.float_]
-    errhi: NDArray[np.float_]
+    errlo: NDArray[np.float64]
+    errhi: NDArray[np.float64]
 
 
 def read_in_observations(datain: Pathlike) -> DataContainerwithError:
@@ -191,7 +191,7 @@ def read_in_observations(datain: Pathlike) -> DataContainerwithError:
 class BandSpecs(NamedTuple):
     bandindex: list[tuple]
     modindex: list[tuple[int]]
-    modwave: NDArray[np.float_]
+    modwave: NDArray[np.float64]
 
 
 def band_data(
@@ -231,7 +231,7 @@ def band_convolve_and_bin_observations(
 
 
 def calculate_total_flux_in_CGS(observations: SpectrumWithWavelengths) -> float:
-    bin_widths: NDArray[np.float_] = get_bin_spacings_from_wavelengths(
+    bin_widths: NDArray[np.float64] = get_bin_spacings_from_wavelengths(
         observations.wavelengths
     )
 
@@ -245,7 +245,7 @@ def calculate_total_flux_in_CGS(observations: SpectrumWithWavelengths) -> float:
 
 def get_wavelengths_from_data(
     data_parameters: DataParameters,
-) -> tuple[NDArray[np.float_]]:
+) -> tuple[NDArray[np.float64]]:
     binned_data: DataContainerwithError = band_convolve_and_bin_observations(
         observations=read_in_observations(data_parameters.datain),
         data_parameters=data_parameters,
@@ -264,8 +264,8 @@ def calculate_wavelength_calibration_limits(
 
 
 def calculate_wavelength_limits(
-    wavelo: NDArray[np.float_],
-    wavehi: NDArray[np.float_],
+    wavelo: NDArray[np.float64],
+    wavehi: NDArray[np.float64],
     deltaL_parameter: RetrievalParameter | None = None,
 ) -> tuple[float]:
     minDL, maxDL = calculate_wavelength_calibration_limits(deltaL_parameter)
@@ -305,7 +305,7 @@ def get_unbanded_wavelengths_from_opacity_tables(
     opacity_catalog_name: str,
     degrade: int | float,
     fiducial_species_name: str = "h2o",
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     # Compute hires spectrum wavelengths
     opacfile = f"{opacdir}/gases/{fiducial_species_name}.{opacity_catalog_name}.dat"
     with open(opacfile, "r") as fopac:
@@ -325,7 +325,7 @@ def get_unbanded_wavelengths_from_opacity_tables(
 
 def set_Teff_calculation_wavelengths_from_opacity_tables(
     opacdir: str, fiducial_species_name: str = "h2o"
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     return get_unbanded_wavelengths_from_opacity_tables(
         opacdir, "lores", 1.0, fiducial_species_name
     )
@@ -333,10 +333,10 @@ def set_Teff_calculation_wavelengths_from_opacity_tables(
 
 def pare_down_model_wavelengths(
     band_limits: tuple[tuple[float]],
-    opacwave: NDArray[np.float_],
+    opacwave: NDArray[np.float64],
     minDL: float,
     maxDL: float,
-) -> NDArray[np.float_]:
+) -> NDArray[np.float64]:
     j_starts, j_ends = af.SliceModel_bindex(band_limits, opacwave, minDL, maxDL)
 
     return af.SliceModel_modwave(opacwave, j_starts, j_ends)
@@ -356,7 +356,7 @@ def set_model_wavelengths_from_opacity_tables_and_data(
     opacdir: str = opacity_parameters.opacdir
     opacity_catalog_name: str = opacity_parameters.hires
     degrade: int | float = opacity_parameters.degrade
-    unbanded_opacity_wavelengths: NDArray[np.float_] = (
+    unbanded_opacity_wavelengths: NDArray[np.float64] = (
         get_unbanded_wavelengths_from_opacity_tables(
             opacdir=opacdir, opacity_catalog_name=opacity_catalog_name, degrade=degrade
         )
@@ -378,7 +378,7 @@ def set_model_wavelengths_from_opacity_tables_and_data(
     )
 
     """
-    banded_opacity_wavelengths: NDArray[np.float_] = pare_down_model_wavelengths(
+    banded_opacity_wavelengths: NDArray[np.float64] = pare_down_model_wavelengths(
         band_limits=data_band_limits,
         opacwave=unbanded_opacity_wavelengths,
         minDL=minDL,
@@ -440,17 +440,16 @@ def normalize_banded_data(
 
 
 class BinIndices(NamedTuple):
-    lower_bin_index: NDArray[np.float_]
-    upper_bin_index: NDArray[np.float_]
+    lower_bin_index: NDArray[np.float64]
+    upper_bin_index: NDArray[np.float64]
 
 
 def get_model_spectral_bin_indices(
-    modwave: NDArray[np.float_], binlo, binhi
+    modwave: NDArray[np.float64], binlo, binhi
 ) -> tuple[BinIndices, BinIndices]:
     bins = af.GetBins(modwave, binlo, binhi)
     ibinlo = bins[0]
     ibinhi = bins[1]
-    # print(f"ibinlo: {ibinlo}, ibinhi: {ibinhi}")
 
     # Needed to calculate the spectrum with the wavelength offset later.
     delmodwave = modwave + 0.001
@@ -465,7 +464,7 @@ def get_indices_of_molecular_species(list_of_gases: list[str]) -> NDArray[np.int
     return af.GetMollist(list_of_gases)
 
 
-def make_pressure_grid(natm: int, minP: float, maxP: float) -> NDArray[np.float_]:
+def make_pressure_grid(natm: int, minP: float, maxP: float) -> NDArray[np.float64]:
     return maxP + (minP - maxP) * np.arange(natm) / (natm - 1)
 
 
@@ -571,7 +570,7 @@ def set_up_PyPlanet(
 
     number_of_streams: int = model_parameters.streams
 
-    # model_wavelengths: NDArray[np.float_] = (
+    # model_wavelengths: NDArray[np.float64] = (
     #    set_model_wavelengths_from_opacity_tables_and_data(
     #        data_parameters, opacity_parameters, mindL=minDL, maxdL=maxDL
     #    )

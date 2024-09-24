@@ -43,3 +43,5 @@ apollo/RT_Toon1989_rust.rs
 test_array_typing.py
 extensions/SONORA_chemical-equilibrium_profile_logg3.5_Teff1300_ctoo-vs-solar1_metallicity0.5.nc
 .stfolder/syncthing-folder-47c47a.txt
+apollo/Apollo_multi-sampler.py
+apollo/user/__pycache__

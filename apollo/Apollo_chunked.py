@@ -19,6 +19,7 @@ from apollo.Apollo_Planet_SetParameters import (
     make_params1,
     set_parameters,
 )
+from apollo.spectrum.band_bin_and_convolve import get_wavelengths_from_wavelength_bins
 from custom_types import Pathlike
 
 APOLLO_DIRECTORY = abspath(
@@ -172,7 +173,7 @@ def generate_emission_spectrum_from_APOLLO_file(
         transit_parameters=transit_parameters,
     )
 
-    parameters_for_planet: list = set_parameters(
+    parameters_for_planet: list[float] = set_parameters(
         params1=params1,
         molecular_parameters=molecular_parameters,
         gas_parameters=gas_parameters,
@@ -187,7 +188,7 @@ def generate_emission_spectrum_from_APOLLO_file(
         get_spectrum if cloud_filling_fraction == 1.0 else get_fractional_cloud_spectrum
     )
 
-    spectral_quantity_at_system: NDArray[np.float_] = np.asarray(
+    spectral_quantity_at_system: NDArray[np.float64] = np.asarray(
         model_spectrum_function(planet)
     )
 
@@ -252,14 +253,15 @@ def generate_emission_spectrum_from_APOLLO_file(
         binning_factor=data_parameters.databin,
         convolving_factor=data_parameters.dataconv,
     )
-    # print(f"{binning_parameters=}")
 
     observed_spectrum_function: Callable[
         [SpectrumWithWavelengths], SpectrumWithWavelengths
     ] = generate_observation_pipeline_from_model_parameters(
         observation_scaler_inputs=observational_scaler,
         flux_scaler_inputs=flux_scalers,
-        binned_wavelengths=get_wavelengths_from_data(data_parameters),
+        binned_wavelengths=get_wavelengths_from_wavelength_bins(
+            *get_wavelengths_from_data(data_parameters)
+        ),
         binning_parameters_inputs=binning_parameters,
     )
 

@@ -26,7 +26,7 @@ def spoof_data_file(
         resolution * np.log(ending_wavelength / starting_wavelength) + 1
     )
 
-    wavelengths: NDArray[np.float_] = starting_wavelength * np.exp(
+    wavelengths: NDArray[np.float64] = starting_wavelength * np.exp(
         np.arange(number_of_wavelengths) / resolution
     )
 
@@ -34,9 +34,9 @@ def spoof_data_file(
         wavelengths
     )
 
-    dummy_column: NDArray[np.float_] = np.zeros_like(wavelength_bin_starts)
+    dummy_column: NDArray[np.float64] = np.zeros_like(wavelength_bin_starts)
 
-    concatenated_data: NDArray[np.float_] = np.c_[
+    concatenated_data: NDArray[np.float64] = np.c_[
         wavelength_bin_starts,
         wavelength_bin_ends,
         dummy_column,

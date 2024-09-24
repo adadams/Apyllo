@@ -16,7 +16,7 @@ def load_dynesty_results(filepath: Pathlike) -> dynesty.results.Results:
     return dynesty_results
 
 
-def load_derived_parameters(filepath: Pathlike) -> NDArray[np.float_]:
+def load_derived_parameters(filepath: Pathlike) -> NDArray[np.float64]:
     with open(filepath, "rb") as derived_parameters_file:
         derived_parameters = pickle.load(derived_parameters_file)
 
@@ -24,8 +24,8 @@ def load_derived_parameters(filepath: Pathlike) -> NDArray[np.float_]:
 
 
 def compile_dynesty_parameters(
-    dynesty_results: dynesty.results.Results, derived_parameters: NDArray[np.float_]
-) -> NDArray[np.float_]:
+    dynesty_results: dynesty.results.Results, derived_parameters: NDArray[np.float64]
+) -> NDArray[np.float64]:
     return np.c_[dynesty_results.samples, derived_parameters]
 
 

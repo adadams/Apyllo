@@ -25,8 +25,8 @@ from user.forward_models.inputs.parse_APOLLO_inputs import (  # noqa: E402
 
 @dataclass
 class SamplingResults:
-    samples: NDArray[np.float_]
-    log_likelihoods: NDArray[np.float_]
+    samples: NDArray[np.float64]
+    log_likelihoods: NDArray[np.float64]
 
 
 def unpack_results_filepaths(
@@ -84,6 +84,7 @@ def guess_default_units_from_parameter_names(
         else:
             guessed_unit = "dimensionless"
 
+        print(f"{parameter_name} = {guessed_unit}")
         guessed_units.append(guessed_unit)
 
     return guessed_units
@@ -222,7 +223,9 @@ def make_MLE_parameter_file_from_input_parameter_file(
     # input_parameter_group_slices = parsed_input_file["parameter_group_slices"]
     input_file_headers = parsed_input_file["header"]
 
-    input_file_headers["Data"] = (str(data_filepath.relative_to(Path.cwd())),)
+    input_file_headers["Data"] = (
+        str(Path(data_filepath).absolute().relative_to(Path.cwd())),
+    )
 
     # parameter_properties = get_parameter_properties_from_defaults(
     #    input_parameter_names, input_parameter_group_slices

@@ -21,7 +21,7 @@ class MaterialFunction(Protocol):
         log_pressures: PressureArray,
         scattering_angles: AngleArray,
         **kwargs,
-    ) -> NDArray[np.float_]: ...
+    ) -> NDArray[np.float64]: ...
 
 
 class TPFunction(Protocol):
