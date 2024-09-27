@@ -8,11 +8,9 @@ from typing import NamedTuple, TypedDict
 import numpy as np
 from numpy.typing import NDArray
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
 
 import apollo.src.ApolloFunctions as af  # noqa: E402
 from apollo.planet import (  # noqa: E402

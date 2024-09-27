@@ -1,13 +1,10 @@
 import sys
-from os.path import abspath
 from pathlib import Path
 from typing import Final
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
 
 from apollo.spectrum.read_spectral_data_into_xarray import (  # noqa: E402
     read_APOLLO_data_into_dataset,

@@ -1,17 +1,15 @@
 import sys
 from collections.abc import Callable
 from functools import partial
-from os.path import abspath
+from pathlib import Path
 from typing import Final, NamedTuple, Optional, Union
 
 import numpy as np
 from numpy.typing import NDArray
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
 
 from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
     MolecularParameters,
@@ -62,11 +60,11 @@ def make_params1(
     pressure_parameters: PressureParameters,
     transit_parameters: TransitParameters,
 ) -> list[float]:
-    mean_molecular_weight: float = np.mean(
+    mean_molecular_weight: float = np.sum(
         molecular_parameters.weighted_molecular_weights
     )
 
-    mean_scattering_cross_section: float = np.mean(
+    mean_scattering_cross_section: float = np.sum(
         molecular_parameters.weighted_scattering_cross_sections
     )
 
@@ -88,7 +86,6 @@ def make_params1(
         if cloud_parameters is None
         else list(params1_minus_clouds) + list(cloud_parameters)
     )
-    print(f"make_params1: {result=}")
 
     return result
 
@@ -186,6 +183,7 @@ def compile_Cclass_parameters(
         "tplong": TP_profile,
     }
 
+    # print(f"compile_Cclass_parameters: {result=}")
     return result
 
 
@@ -205,6 +203,8 @@ def set_parameters(
         TP_model_parameters=TP_model_parameters,
         pressure_parameters=pressure_parameters,
     )
+
+    # print(f"set_parameters: {set_params_kwargs=}")
 
     return [
         set_params_kwargs["params1"],

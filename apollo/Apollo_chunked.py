@@ -1,6 +1,6 @@
 import sys
 from collections.abc import Callable
-from os.path import abspath
+from pathlib import Path
 from typing import NamedTuple
 
 import numpy as np
@@ -22,11 +22,9 @@ from apollo.Apollo_Planet_SetParameters import (
 from apollo.spectrum.band_bin_and_convolve import get_wavelengths_from_wavelength_bins
 from custom_types import Pathlike
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
 
 from apollo.Apollo_ProcessInputs import (  # noqa: E402
     BinIndices,
@@ -87,8 +85,8 @@ def generate_emission_spectrum_from_APOLLO_file(
         set_model_wavelengths_from_opacity_tables_and_data(
             data_parameters=data_parameters,
             opacity_parameters=opacity_parameters,
-            minDL=0.0,
-            maxDL=0.0,  # TODO: add deltaL parameter values here
+            minDL=-0.005,
+            maxDL=0.005,  # TODO: hard-coded values here for testing purposes
         )
     )
 

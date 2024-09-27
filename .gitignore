@@ -19,11 +19,7 @@ extensions_I_use.txt
 
 plot_stuff_JWST-only_2M2236_logg-free_against_HK+JWST_2M2236_logg-free_data.pickle
 plot_stuff_JWST-only_2M2236_logg-normal_against_HK+JWST_2M2236_logg-free_data.pickle
-.idea/inspectionProfiles/profiles_settings.xml
-.idea/vcs.xml
-.idea/misc.xml
-.idea/APOLLO.iml
-.idea/modules.xml
+.idea
 working_philosophy.txt
 data_spoof_0.6_5.0_R500.dat
 apollo/submodels/play_with_signature.py
@@ -33,7 +29,6 @@ test_function_structure.py
 apollo/test_msgspec.py
 apollo/test_piette_models.py
 apollo/submodels/test_function_model.py
-apollo/submodels/test_function_model.py
 apollo/test_unpack_dataclass.py
 test_helium_spec.py
 extensions/writeh2.50k.cpp
@@ -41,7 +36,11 @@ extensions/writehe.nir.cpp
 extensions/check_hespec.py
 apollo/RT_Toon1989_rust.rs
 test_array_typing.py
-extensions/SONORA_chemical-equilibrium_profile_logg3.5_Teff1300_ctoo-vs-solar1_metallicity0.5.nc
-.stfolder/syncthing-folder-47c47a.txt
+extensions/*.nc
+.stfolder
 apollo/Apollo_multi-sampler.py
 apollo/user/__pycache__
+test_models
+test_spectral_quantity_at_system.npy
+apollo/submodels/test_xarray-dataclasses.py
+apollo/submodels/test_inspect.py

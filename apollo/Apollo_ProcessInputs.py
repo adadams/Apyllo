@@ -1,18 +1,21 @@
 import sys
+from ast import Module
 from collections.abc import Callable, Sequence
 from dataclasses import astuple, dataclass
-from os.path import abspath
+from inspect import getmembers
+from pathlib import Path
 from typing import Any, Final, NamedTuple
 
 import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
+from apollo.submodels import TP
+from apollo.submodels.function_model import FunctionModel
+
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
 
 import apollo.src.ApolloFunctions as af  # noqa: E402
 from apollo.Apollo_ReadInputsfromFile import (  # noqa: E402
@@ -55,12 +58,24 @@ def set_default_output_filename(
     return outfile
 
 
-def select_TP_model_function(gray: bool, atmtype: str) -> Callable:
+def get_list_of_valid_TP_functions(function_module=TP) -> list[str]:
+    valid_TP_functions: list[tuple[str, FunctionModel]] = list(
+        getmembers(TP, lambda obj: isinstance(obj, FunctionModel))
+    )
+
+    valid_TP_function_names = [function[0] for function in valid_TP_functions]
+    return valid_TP_function_names
+
+
+def select_TP_model_function(
+    gray: bool, atmtype: str, TP_model_module: Module = TP
+) -> Callable:
     if gray:
         return TP_models["gray"]
+    # TODO: merge the older "TP_models" into the TP sub-model module
 
-    elif atmtype in TP_models:
-        return TP_models[atmtype]
+    elif atmtype in get_list_of_valid_TP_functions(TP_model_module):
+        return getattr(TP_model_module, atmtype)
 
     else:
         return TP_models["verbatim"]
@@ -320,6 +335,7 @@ def get_unbanded_wavelengths_from_opacity_tables(
     opacwave = np.zeros(opaclen)
     for i in range(0, opaclen):
         opacwave[i] = lmin * np.exp(i * degrade / resolv)
+
     return opacwave
 
 
@@ -468,8 +484,10 @@ def make_pressure_grid(natm: int, minP: float, maxP: float) -> NDArray[np.float6
     return maxP + (minP - maxP) * np.arange(natm) / (natm - 1)
 
 
-def set_TP_model_index(atmtype: str) -> int:
-    if atmtype == "Layers" or atmtype in TP_models:
+def set_TP_model_index(atmtype: str, TP_model_module: Module = TP) -> int:
+    if atmtype == "Layers" or atmtype in get_list_of_valid_TP_functions(
+        TP_model_module
+    ):
         return 0
 
     elif atmtype == "Parametric":
@@ -612,4 +630,5 @@ def set_up_PyPlanet(
 
     planet = PyPlanet()
     planet.MakePlanet(*planet_make_parameters)
+
     return planet

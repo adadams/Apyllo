@@ -1,4 +1,6 @@
+import sys
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -6,7 +8,11 @@ from numpy.typing import ArrayLike, NDArray
 from scipy.interpolate import PchipInterpolator as monotonic_interpolation
 from scipy.ndimage import gaussian_filter1d as gaussian_smoothing
 
-from apollo.submodels.function_model import make_model
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
+
+from apollo.submodels.function_model import make_model  # noqa: E402
 
 
 @runtime_checkable
@@ -87,3 +93,35 @@ def piette(
 
 
 ###############################################################################
+
+
+@make_model(path_to_metadata=modified_piette_metadata)
+def intentionally_wrong_piette(
+    T_m4: float,
+    T_m3: float,
+    T_m2: float,
+    T_m1: float,
+    T_0: float,
+    T_0p5: float,
+    T_1: float,
+    T_1p5: float,
+    T_2: float,
+    T_2p5: float,
+    pressures: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    log_pressure_nodes = np.array([-4, -3, -2, -1, 0, 0.5, 1, 1.5, 2])
+
+    return general_piette_function(
+        T_m4,
+        T_m3,
+        T_m2,
+        T_m1,
+        T_0,
+        T_0p5,
+        T_1,
+        T_1p5,
+        T_2,
+        log_pressure_nodes=log_pressure_nodes,
+        log_pressures=pressures,
+        smoothing_parameter=0.3,
+    )

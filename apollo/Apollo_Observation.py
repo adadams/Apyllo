@@ -1,7 +1,7 @@
 import sys
 from collections.abc import Callable
 from functools import partial
-from os.path import abspath
+from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
 import numpy as np
@@ -9,11 +9,9 @@ from numpy.typing import NDArray
 
 from useful_internal_functions import compose
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
 
 from apollo.Apollo_ProcessInputs import (  # noqa: E402
     BinIndices,
@@ -44,24 +42,9 @@ def apply_nothing(argument: Any) -> Any:
 def calculate_solid_angle(
     radius_case: RadiusInputType, radius_parameter: float, distance_to_system: float
 ) -> float:
-    if radius_case == "Rad":
-        theta_planet = (radius_parameter * REarth_in_cm) / (
-            distance_to_system * parsec_in_cm
-        )
-    elif radius_case == "RtoD":
-        theta_planet = 10**radius_parameter
-    elif radius_case == "RtoD2U":
-        theta_planet = (
-            np.sqrt(radius_parameter)
-            * REarth_in_cm
-            / (distance_to_system * parsec_in_cm)
-        )
-    else:
-        theta_planet = (RJup_in_REarth * REarth_in_cm) / (
-            distance_to_system * parsec_in_cm
-        )
+    angle_subtended_by_planet = radius_parameter / (distance_to_system * parsec_in_cm)
 
-    return theta_planet**2
+    return angle_subtended_by_planet**2
 
 
 class NormalizationParameters(NamedTuple):
@@ -74,6 +57,8 @@ def normalize_spectrum(
     model_spectrum: SpectrumWithWavelengths,
     normalization_parameters: Optional[NormalizationParameters] = None,
 ) -> SpectrumWithWavelengths:
+    # TODO: untested
+
     total_flux: float = calculate_total_flux_in_CGS(model_spectrum)
 
     normspec: NDArray[np.float64] = NormSpec(
@@ -137,16 +122,6 @@ def bin_and_convolve_model(
     # for i in range(0, len(modindex)):
     #    convmod.append(ConvSpec(normspec[modindex[i][0] : modindex[i][1]], binw))
 
-    pre_convmod: list[NDArray[np.float64]] = [
-        full_resolution_observed_flux[model_index_start:model_index_end]
-        for (
-            model_index_start,
-            model_index_end,
-        ) in binning_parameters.model_spectrum_indices
-    ]
-
-    print(f"{pre_convmod=}")
-
     convmod: list[NDArray[np.float64]] = [
         ConvSpec(
             flux=full_resolution_observed_flux[model_index_start:model_index_end],
@@ -157,13 +132,9 @@ def bin_and_convolve_model(
             model_index_end,
         ) in binning_parameters.model_spectrum_indices
     ]
-    print(f"convmod before unpacking in list: {convmod=}")
 
     convmod: list[float] = [item for sublist in convmod for item in sublist]
-    print(f"convmod after unpacking in list: {convmod=}")
 
-    print(f"{lower_bin_indices=}" f"{upper_bin_indices=}")
-    print(f"{binning_parameters.band_index=}")
     binmod: list[NDArray[np.float64]] = [
         BinModel(
             flux=convmod,
@@ -175,7 +146,6 @@ def bin_and_convolve_model(
             model_end_index,
         ) in binning_parameters.model_spectrum_indices
     ]
-    print(f"{binmod=}")
 
     return SpectrumWithWavelengths(
         wavelengths=binned_wavelengths,
@@ -220,8 +190,6 @@ def make_observation_at_full_resolution(
         else spectrum_at_system.flux * calculate_solid_angle(*observation_scaler),
     )
 
-    print(f"make_observation_at_full_resolution: {result=}")
-
     return result
 
 
@@ -230,13 +198,6 @@ def make_observation_at_binned_resolution(
     binned_wavelengths: NDArray[np.float64],
     binning_parameters: BinningParameters,
 ) -> SpectrumWithWavelengths:
-    print(f"{observation_at_full_resolution.flux=}")
-    # band_specs: BandSpecs = BandSpecs(
-    #    bandindex=binning_parameters.band_index,
-    #    modindex=binning_parameters.model_spectrum_indices,
-    #    modwave=observation_at_full_resolution.wavelengths,
-    # )
-
     return bin_and_convolve_model(
         full_resolution_observed_flux=observation_at_full_resolution.flux,
         binned_wavelengths=binned_wavelengths,

@@ -1,16 +1,14 @@
 import sys
 from dataclasses import dataclass
-from os.path import abspath
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
 from xarray_dataclasses import AsDataset, Attr, Coord, Data
 
-APOLLO_DIRECTORY = abspath(
-    "/Users/arthur/Documents/Astronomy/2019/Retrieval/Code/Apyllo"
-)
-if APOLLO_DIRECTORY not in sys.path:
-    sys.path.append(APOLLO_DIRECTORY)
+APOLLO_DIRECTORY = Path.cwd().absolute()
+if str(APOLLO_DIRECTORY) not in sys.path:
+    sys.path.append(str(APOLLO_DIRECTORY))
 
 from dataset.builders import prep_unit_registry  # noqa: E402
 
