@@ -1,11 +1,13 @@
 import time
 from os.path import isfile
 from pathlib import Path
-from typing import Union
+from typing import Final, Union
 
 import numpy as np
 import picaso.opacity_factory as opa_fac
 from combine_alkalis import load_and_combine_alkalis
+
+ORIGINAL_LUPU_RESOLUTION: Final[float] = 1_000_000.0
 
 
 def run_picaso_opacity_factory(
@@ -96,6 +98,10 @@ def prepare_opacity_table(
     )
     number_of_spectral_elements = np.shape(final_data)[-1]
 
+    actual_resolution_of_tables: float = ORIGINAL_LUPU_RESOLUTION / int(
+        ORIGINAL_LUPU_RESOLUTION / new_resolution
+    )
+
     header_info = [
         (number_of_pressures, "d"),
         (pressure_min, "1.1f"),
@@ -106,7 +112,7 @@ def prepare_opacity_table(
         (number_of_spectral_elements, "d"),
         (minimum_wavelength, "2.5f"),
         (maximum_wavelength, "2.5f"),
-        (new_resolution, "6.2f"),
+        (actual_resolution_of_tables, "6.2f"),
     ]
     header_string = " ".join(["{:{}}".format(*entry) for entry in header_info])
 

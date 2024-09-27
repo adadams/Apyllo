@@ -1,7 +1,6 @@
 import sys
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum, auto
-from os.path import abspath
 from pathlib import Path
 from typing import IO, Any, Final, NamedTuple, Optional, TypedDict
 from warnings import warn
